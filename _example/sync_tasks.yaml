@@ -1,0 +1,60 @@
+trackers:
+  - name: asana
+    driver: asana
+    with:
+      workspace_id: kazanexpress.ru
+
+  - name: github_erp
+    driver: github
+    with:
+      owner: KazanExpress
+      name: erp-photostudio
+      client_id: {{ env "GITHUB_CLIENT_ID" }}
+      client_secret: {{ env "GITHUB_CLIENT_SECRET" }}
+
+  - name: telegram
+    driver: telegram
+    with:
+      token: {{ env "TELEGRAM_BOT_TOKEN" }}
+
+
+triggers:
+  - name: github_task_update
+    in: github_erp
+    with:
+      events:
+        - issues
+  - name: asana_task_update
+    in: asana
+    with:
+      action: changed
+      fields:
+        - due_at
+        - due_on
+        - dependencies
+      resource: task
+
+
+mappers:
+  - name: github_task_mapper
+    to: github
+    with:
+      body: {{ .Body }}
+      title: {{ .Title }}
+      labels: {{ .Fields }}
+  - name: tg_message
+    to: telegram
+    with:
+      message: "Task \"{{.Title}}\" has been updated, link: {{.URL}}"
+
+
+flow:
+  - name: update task in github when task in asana is updated
+    on: asana_task_update
+    do:
+      - action: update_task
+        in: github_erp
+        using: github_task_mapper
+      - action: notify
+        in: telegram
+        using: tg_message_tmpl

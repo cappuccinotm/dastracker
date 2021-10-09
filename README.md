@@ -1,2 +1,3 @@
-# dastracker
-Tool for migrating tasks from some task tracker to another task tracker
+# Autotasker
+
+A tool for migrating tasks from one task tracker into another.
