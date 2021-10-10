@@ -7,6 +7,7 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 // Interface defines methods for each tracker.
@@ -32,14 +33,14 @@ func (f CallbackFunc) Do(ctx context.Context, upd store.Update) error { return f
 // WebhookProps describes parameters needed to tracker
 // in order to instantiate a webhook.
 type WebhookProps struct {
-	Mux     *http.ServeMux
+	Mux     *mux.Router
 	BaseURL string
 }
 
 func (w *WebhookProps) newWebHook(fn func(w http.ResponseWriter, r *http.Request)) (url string) {
-	url = w.BaseURL + "/" + uuid.NewString()
-	w.Mux.HandleFunc(url, fn)
-	return url
+	whID := uuid.NewString()
+	w.Mux.HandleFunc("/"+whID, fn)
+	return w.BaseURL + "/" + whID
 }
 
 // Props describes basic properties for tracker.

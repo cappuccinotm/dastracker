@@ -3,30 +3,26 @@
 # seq <list[string]> - serializes the list in form of "string1,string2,string3,..."
 
 trackers:
-  - name: asana
-    driver: asana
-    with:
-      workspace_id: kazanexpress.ru
-
   - name: gh_dastracker
     driver: github
     with:
       owner: cappuccinotm
       name: dastracker
-      access_token: {{ env "GITHUB_ACCESS_TOKEN" }}
+      user: "{{ env \"GITHUB_USER\" }}"
+      access_token: "{{ env \"GITHUB_ACCESS_TOKEN\" }}"
 
   - name: customrpc
     driver: rpc
     with:
-      address: {{ env "CUSTOM_RPC_ADDRESS" }}
+      address: "{{ env \"CUSTOM_RPC_ADDRESS\" }}"
 
 jobs:
   - name: print task update if task is received
     on:
       tracker: gh_dastracker
       with:
-        events: [ "issue" ]
+        events: "issue"
     do:
-      - action: rpc/Print
+      - action: customrpc/Print
         with:
           message: "Task \"{{.Update.Title}}\" has been updated and printed to the terminal."

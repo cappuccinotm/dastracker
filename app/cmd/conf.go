@@ -3,6 +3,8 @@ package cmd
 import (
 	"os"
 	"strings"
+
+	"github.com/cappuccinotm/dastracker/lib"
 )
 
 // Config describes a single config file.
@@ -13,9 +15,9 @@ type Config struct {
 
 // Tracker describes a single task tracker and its connection.
 type Tracker struct {
-	Name   string            `yaml:"name"`
-	Driver string            `yaml:"driver"`
-	Vars   map[string]string `yaml:"with"`
+	Name   string   `yaml:"name"`
+	Driver string   `yaml:"driver"`
+	Vars   lib.Vars `yaml:"with"`
 }
 
 // Job is a flow of actions which must happen when the desired
@@ -28,14 +30,14 @@ type Job struct {
 
 // Trigger describes a change that must appear in order to trigger a job.
 type Trigger struct {
-	TrackerName string            `yaml:"in"`
-	Vars        map[string]string `yaml:"with"`
+	TrackerName string   `yaml:"tracker"`
+	Vars        lib.Vars `yaml:"with"`
 }
 
 // Action describes a single step in the job.
 type Action struct {
-	Method string            `yaml:"action"`
-	Vars   map[string]string `yaml:"vars"`
+	Method string   `yaml:"action"`
+	Vars   lib.Vars `yaml:"with"`
 }
 
 // map of functions to parse from the config file

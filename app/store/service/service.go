@@ -101,7 +101,12 @@ func (s *Service) onTrigger(ctx context.Context, trackerName, jobName string, up
 			req.TicketID = ticketID
 		}
 
-		resp, err := s.trackers[action.Tracker].Call(ctx, req)
+		tr, ok := s.trackers[action.Tracker]
+		if !ok {
+			return fmt.Errorf("tracker %s is not registered", action.Tracker)
+		}
+
+		resp, err := tr.Call(ctx, req)
 		if err != nil {
 			return fmt.Errorf("call %s/%s: %w", action.Tracker, action.Method, err)
 		}

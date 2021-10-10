@@ -8,11 +8,12 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/cappuccinotm/dastracker/app/store"
+	"github.com/cappuccinotm/dastracker/app/util"
 	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/hashicorp/go-multierror"
-	"golang.org/x/oauth2"
 )
 
 // Github implements Interface over Github issues.
@@ -21,13 +22,13 @@ type Github struct {
 
 	baseURL string
 
-	GithubProps
+	GithubParams
 	githubConn
 }
 
-// GithubProps describes parameters
+// GithubParams describes parameters
 // needed to initialize Github driver.
-type GithubProps struct {
+type GithubParams struct {
 	Log     *log.Logger
 	Client  *http.Client
 	Webhook WebhookProps
@@ -35,17 +36,19 @@ type GithubProps struct {
 }
 
 // NewGithub makes new instance of Github.
-func NewGithub(props GithubProps) (*Github, error) {
-	res := &Github{webhooks: map[string]string{}, GithubProps: props, baseURL: "https://api.github.com"}
-	if err := res.githubConn.parse(props.Tracker.Variables); err != nil {
+func NewGithub(params GithubParams) (Interface, error) {
+	res := &Github{webhooks: map[string]string{}, GithubParams: params, baseURL: "https://api.github.com"}
+	if err := res.githubConn.parse(params.Tracker.Variables); err != nil {
 		return nil, fmt.Errorf("parse configuration: %w", err)
 	}
 
-	ts := oauth2.ReuseTokenSource(nil,
-		oauth2.StaticTokenSource(&oauth2.Token{AccessToken: res.AccessToken}),
-	)
-	tr := &oauth2.Transport{Source: ts, Base: props.Client.Transport}
-	res.Client.Transport = tr
+	res.Client.Transport = util.RoundTripperFunc(
+		func(r *http.Request) (*http.Response, error) {
+			r.SetBasicAuth(res.User, res.AccessToken)
+			return http.DefaultTransport.RoundTrip(r)
+		})
+
+	log.Printf("[INFO] initialized Github tracker with params %+v", params)
 
 	return res, nil
 }
@@ -112,42 +115,47 @@ func (g *Github) Close(ctx context.Context) error {
 func (g *Github) SetUpTrigger(ctx context.Context, vars lib.Vars, cb Callback) error {
 	whURL := g.Webhook.newWebHook(g.whHandler(cb))
 
-	bts, err := json.Marshal(g.parseHookReq(whURL, vars))
-	if err != nil {
-		return fmt.Errorf("marshal hook request: %w", err)
-	}
+	log.Printf("[INFO] setting up a webhook to url %s for %s github trigger", g.Tracker.Name, whURL)
 
-	url := fmt.Sprintf("%s/repos/%s/%s/hooks", g.baseURL, g.Owner, g.Name)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bts))
-	if err != nil {
-		return fmt.Errorf("create request: %w", err)
-	}
-
-	resp, err := g.Client.Do(req)
-	if err != nil {
-		return fmt.Errorf("do request: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		rerr := ErrUnexpectedStatus{RequestBody: bts, ResponseStatus: resp.StatusCode}
-		if rerr.ResponseBody, err = io.ReadAll(resp.Body); err != nil {
-			g.Log.Printf("[WARN] failed to read github create webhook response body for status %d",
-				resp.StatusCode)
-			return rerr
-		}
-		return rerr
-	}
-	var respBody struct {
-		ID string `json:"id"`
-	}
-
-	if err = json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
-		return fmt.Errorf("unmarshal created issue's id: %w", err)
-	}
-
-	g.webhooks[whURL] = respBody.ID
 	return nil
+
+	//bts, err := json.Marshal(g.parseHookReq(whURL, vars))
+	//if err != nil {
+	//	return fmt.Errorf("marshal hook request: %w", err)
+	//}
+	//
+	//url := fmt.Sprintf("%s/repos/%s/%s/hooks", g.baseURL, g.Owner, g.Name)
+	//
+	//req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bts))
+	//if err != nil {
+	//	return fmt.Errorf("create request: %w", err)
+	//}
+	//
+	//resp, err := g.Client.Do(req)
+	//if err != nil {
+	//	return fmt.Errorf("do request: %w", err)
+	//}
+	//
+	//if resp.StatusCode != http.StatusCreated {
+	//	rerr := ErrUnexpectedStatus{RequestBody: bts, ResponseStatus: resp.StatusCode}
+	//	if rerr.ResponseBody, err = io.ReadAll(resp.Body); err != nil {
+	//		g.Logger.Printf("[WARN] failed to read github create webhook response body for status %d",
+	//			resp.StatusCode)
+	//		return rerr
+	//	}
+	//	return rerr
+	//}
+	//var respBody struct {
+	//	ID string `json:"id"`
+	//}
+	//
+	//if err = json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+	//	return fmt.Errorf("unmarshal created issue's id: %w", err)
+	//}
+	//
+	//g.webhooks[whURL] = respBody.ID
+	//
+	//return nil
 }
 
 func (g *Github) createIssue(ctx context.Context, vars lib.Vars) (id string, err error) {
@@ -245,7 +253,7 @@ func (g *Github) whHandler(cb Callback) func(http.ResponseWriter, *http.Request)
 		var resp struct {
 			Action string `json:"action"`
 			Issue  struct {
-				ID          string `json:"number"`
+				ID          int    `json:"number"`
 				Title       string `json:"title"`
 				Description string `json:"description"`
 				URL         string `json:"url"`
@@ -258,7 +266,7 @@ func (g *Github) whHandler(cb Callback) func(http.ResponseWriter, *http.Request)
 		}
 
 		upd := store.Update{
-			TrackerTaskID: resp.Issue.ID,
+			TrackerTaskID: strconv.Itoa(resp.Issue.ID),
 			Body:          resp.Issue.Description,
 			Title:         resp.Issue.Title,
 			URL:           resp.Issue.URL,
@@ -274,6 +282,7 @@ func (g *Github) whHandler(cb Callback) func(http.ResponseWriter, *http.Request)
 type githubConn struct {
 	Owner       string
 	Name        string
+	User        string
 	AccessToken string
 }
 
@@ -286,6 +295,10 @@ func (r *githubConn) parse(vars lib.Vars) error {
 
 	if r.Name, ok = vars["name"]; !ok {
 		return ErrInvalidConf("repository name is not present")
+	}
+
+	if r.User, ok = vars["user"]; !ok {
+		return ErrInvalidConf("user is not present")
 	}
 
 	if r.AccessToken, ok = vars["access_token"]; !ok {

@@ -15,13 +15,14 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/store/service"
 	"github.com/cappuccinotm/dastracker/app/tracker"
+	"github.com/gorilla/mux"
 	bolt "go.etcd.io/bbolt"
 	"gopkg.in/yaml.v3"
 )
 
 // Run starts a tracker listener.
 type Run struct {
-	ConfLocation string `short:"c" long:"config_location" env:"CONF_LOCATION" description:"location of the configuration file"`
+	ConfLocation string `short:"c" long:"config_location" env:"CONFIG_LOCATION" description:"location of the configuration file"`
 	Store        struct {
 		Type string `long:"type" env:"TYPE" choice:"bolt" description:"type of storage"`
 		Bolt struct {
@@ -31,6 +32,7 @@ type Run struct {
 	} `group:"store" namespace:"store" env-namespace:"STORE"`
 	Webhook struct {
 		BaseURL string `long:"base_url" env:"BASE_URL" description:"base url for webhooks"`
+		Addr    string `long:"addr" env:"ADDR" description:"local address to listen"`
 	} `group:"webhook" namespace:"webhook" env-namespace:"WEBHOOK"`
 }
 
@@ -47,7 +49,9 @@ func (r Run) Execute(_ []string) error {
 		return fmt.Errorf("decode config: %w", err)
 	}
 
-	trackers, err := r.initializeTrackers(conf)
+	whRouter := mux.NewRouter()
+
+	trackers, err := r.initializeTrackers(conf, whRouter)
 	if err != nil {
 		return fmt.Errorf("initialize trackers: %w", err)
 	}
@@ -66,6 +70,24 @@ func (r Run) Execute(_ []string) error {
 
 	if err = r.initTriggers(svc, conf); err != nil {
 		return fmt.Errorf("initialzie triggers: %w", err)
+	}
+
+	err = whRouter.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		t, err := route.GetPathTemplate()
+		if err != nil {
+			return err
+		}
+		log.Printf("[INFO] route %s", t)
+		return nil
+	})
+	if err != nil {
+		log.Printf("[WARN] failed to walk through webhook routes: %v", err)
+	}
+
+	log.Printf("[INFO] starting listening for webhooks at %s", r.Webhook.Addr)
+
+	if err := http.ListenAndServe(r.Webhook.Addr, whRouter); err != nil {
+		log.Printf("[WARN] listener stopped, reason: %v", err)
 	}
 
 	return nil
@@ -89,9 +111,8 @@ func executeVars(varTmpls map[string]string) (map[string]string, error) {
 	return res, nil
 }
 
-func (r Run) initializeTrackers(conf Config) (map[string]tracker.Interface, error) {
+func (r Run) initializeTrackers(conf Config, whMux *mux.Router) (map[string]tracker.Interface, error) {
 	res := map[string]tracker.Interface{}
-	whMux := http.NewServeMux()
 
 	for _, trackerConf := range conf.Trackers {
 		vars, err := executeVars(trackerConf.Vars)
@@ -101,23 +122,25 @@ func (r Run) initializeTrackers(conf Config) (map[string]tracker.Interface, erro
 
 		switch trackerConf.Driver {
 		case "github":
-			submux := http.NewServeMux()
-			whMux.Handle("/"+trackerConf.Name, submux)
+			subrouter := whMux.PathPrefix("/" + trackerConf.Name).Subrouter()
 
-			res[trackerConf.Name], err = tracker.NewGithub(tracker.GithubProps{
+			res[trackerConf.Name], err = tracker.NewGithub(tracker.GithubParams{
 				Log:     log.Default(),
 				Client:  &http.Client{Timeout: 5 * time.Second},
-				Webhook: tracker.WebhookProps{Mux: submux, BaseURL: r.Webhook.BaseURL},
+				Webhook: tracker.WebhookProps{Mux: subrouter, BaseURL: r.Webhook.BaseURL + "/" + trackerConf.Name},
 				Tracker: tracker.Props{Name: trackerConf.Name, Variables: vars},
 			})
 			if err != nil {
 				return nil, fmt.Errorf("github tracker %s: %w", trackerConf.Name, err)
 			}
 		case "rpc":
-			rcl, err := tracker.NewRPC(trackerConf.Vars,
-				tracker.RPCDialerFunc(func(network, address string) (tracker.RPCClient, error) {
+			rcl, err := tracker.NewRPC(tracker.RPCParams{
+				Dialer: tracker.RPCDialerFunc(func(network, address string) (tracker.RPCClient, error) {
 					return rpc.Dial(network, address)
-				}))
+				}),
+				Logger:  log.Default(),
+				Tracker: tracker.Props{Name: trackerConf.Name, Variables: vars},
+			})
 			if err != nil {
 				return nil, fmt.Errorf("rpc tracker %s: %w", trackerConf.Name, err)
 			}
