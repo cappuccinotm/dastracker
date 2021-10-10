@@ -1,22 +1,134 @@
 package cmd
 
-import "github.com/cappuccinotm/dastracker/app/tracker"
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"net/http"
+	"os"
+	"text/template"
+	"time"
 
+	"github.com/cappuccinotm/dastracker/app/store/engine"
+	"github.com/cappuccinotm/dastracker/app/store/service"
+	"github.com/cappuccinotm/dastracker/app/store/tracker"
+	"gopkg.in/yaml.v3"
+)
+
+// Run starts a tracker listener.
 type Run struct {
-	Github struct {
-		Enabled      bool   `long:"enabled" env:"ENABLED" description:"is github access enabled"`
-		AppID        string `long:"app_id" env:"APP_ID" description:"github application ID"`
-		ClientSecret string
-		// some other parameters
-	} `group:"github" namespace:"github" env-namespace:"GITHUB"`
-	Asana struct {
-		Enabled bool `long:"enabled" env:"ENABLED" description:"is asana access enabled"`
-		AppID   string
-		// blah blah
-	}
+	ConfLocation string `short:"c" long:"config_location" env:"CONF_LOCATION" description:"location of the configuration file"`
+	Store        struct {
+		Type string `long:"type" env:"TYPE" choice:"bolt" description:"type of storage"`
+		Bolt struct {
+			Path    string        `long:"path" env:"PATH" default:"./var" description:"parent dir for bolt files"`
+			Timeout time.Duration `long:"timeout" env:"TIMEOUT" default:"30s" description:"bolt timeout"`
+		} `group:"bolt" namespace:"bolt" env-namespace:"BOLT"`
+	} `group:"store" namespace:"store" env-namespace:"STORE"`
 }
 
 // Execute runs the command
 func (r Run) Execute(args []string) error {
-	tracker.NewGithub()
+	f, err := os.Open(r.ConfLocation)
+	if err != nil {
+		return fmt.Errorf("open config file at location %s: %w", r.ConfLocation, err)
+	}
+
+	var conf Config
+
+	if err := yaml.NewDecoder(f).Decode(&conf); err != nil {
+		return fmt.Errorf("decode config: %w", err)
+	}
+
+	trackers, err := r.initializeTrackers(conf)
+	if err != nil {
+		return fmt.Errorf("initialize trackers: %w", err)
+	}
+
+	eng, err := r.makeDataStore()
+	if err != nil {
+		return fmt.Errorf("make data engine: %w", err)
+	}
+
+	svc := service.NewService(eng, trackers)
+
+	if err = r.initTriggers(svc, conf); err != nil {
+		return fmt.Errorf("initialzie triggers: %w", err)
+	}
+
+	return nil
+}
+
+var funcs = map[string]interface{}{"env": os.Getenv}
+
+func executeVars(varTmpls map[string]string) (map[string]string, error) {
+	res := map[string]string{}
+	for name, val := range varTmpls {
+		tmpl, err := template.New("").Funcs(funcs).Parse(val)
+		if err != nil {
+			return nil, fmt.Errorf("parse template: %w", err)
+		}
+
+		buf := &bytes.Buffer{}
+		if err = tmpl.Execute(buf, nil); err != nil {
+			return nil, fmt.Errorf("execute template: %w", err)
+		}
+
+		res[name] = buf.String()
+	}
+	return res, nil
+}
+
+func (r Run) initializeTrackers(conf Config) (map[string]tracker.Interface, error) {
+	res := map[string]tracker.Interface{}
+
+	for _, trackerConf := range conf.Trackers {
+		vars, err := executeVars(trackerConf.Vars)
+		if err != nil {
+			return nil, fmt.Errorf("tracker %s execute vars: %w", trackerConf.Name, err)
+		}
+		switch trackerConf.Driver {
+		case "github":
+			gh, err := tracker.NewGithub(&http.Client{Timeout: 5 * time.Second}, vars)
+			if err != nil {
+				return nil, fmt.Errorf("github tracker %s: %w", trackerConf.Name, err)
+			}
+			res[trackerConf.Name] = gh
+		case "asana":
+			panic("not implemented")
+		case "telegram":
+			panic("not implemented")
+		case "rpc":
+			panic("not implemented")
+		default:
+			return nil, fmt.Errorf("unsupported driver %s for %s", trackerConf.Driver, trackerConf.Name)
+		}
+	}
+
+	return res, nil
+}
+
+func (r Run) makeDataStore() (engine.Interface, error) {
+	switch r.Store.Type {
+	case "bolt":
+		panic("not implemented")
+	default:
+		return nil, fmt.Errorf("unsupported storage type %s", r.Store.Type)
+	}
+}
+
+func (r Run) initTriggers(svc *service.Service, conf Config) error {
+	for _, job := range conf.Jobs {
+		trigger := service.Trigger{
+			Tracker: job.On.TrackerName,
+			Job:     job.Name,
+			Vars:    job.On.Vars,
+		}
+		err := svc.InitTrigger(context.Background(), trigger)
+		if err != nil {
+			return fmt.Errorf("initialize trigger %v: %w", trigger, err)
+		}
+	}
+
+	return nil
 }

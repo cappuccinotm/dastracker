@@ -1,3 +1,7 @@
+# provided functions: env "NAME" - returns the value of environment variable NAME
+# values <map> - returns a list of values of the map
+# seq <list[string]> - serializes the list in form of "string1,string2,string3,..."
+
 trackers:
   - name: asana
     driver: asana
@@ -9,52 +13,41 @@ trackers:
     with:
       owner: KazanExpress
       name: erp-photostudio
-      client_id: {{ env "GITHUB_CLIENT_ID" }}
-      client_secret: {{ env "GITHUB_CLIENT_SECRET" }}
+      access_token: {{ env "GITHUB_ACCESS_TOKEN" }}
 
   - name: telegram
     driver: telegram
     with:
       token: {{ env "TELEGRAM_BOT_TOKEN" }}
 
+  - name: customrpc
+    driver: rpc
 
-triggers:
-  - name: github_task_update
-    in: github_erp
-    with:
-      events:
-        - issues
-  - name: asana_task_update
-    in: asana
-    with:
-      action: changed
-      fields:
-        - due_at
-        - due_on
-        - dependencies
-      resource: task
-
-
-mappers:
-  - name: github_task_mapper
-    to: github
-    with:
-      body: {{ .Body }}
-      title: {{ .Title }}
-      labels: {{ .Fields }}
-  - name: tg_message
-    to: telegram
-    with:
-      message: "Task \"{{.Title}}\" has been updated, link: {{.URL}}"
-
-
-flow:
+jobs:
   - name: update task in github when task in asana is updated
-    on: asana_task_update
+    on:
+      tracker: asana
+      with:
+        action: "changed"
+        fields: ["due_at", "due_on", "dependencies" ]
+        resource: "task"
     do:
-      - action: update_task
-        in: github_erp
-        using: github_task_mapper
-      - action: notify
-        in: telegram
-        using: tg_message_tmpl
+      - action: github_erp/update_task
+        with:
+          body: {{ .Update.Body }}
+          title: {{ .Update.Title }}
+          labels: {{ seq (values .Update.Fields) }}
+
+      - action: telegram/send
+        with:
+          message: "Task \"{{.Update.Title}}\" has been updated, link: {{.Update.URL}}"
+
+      - action: rpc/print
+        with:
+          message: "Task \"{{.Update.Title}}\" has been updated and printed to the terminal."
+
+  - name: update task in asana when task in github is updated
+    on:
+      tracker: github_erp
+      with:
+        events: [ "issue" ]
