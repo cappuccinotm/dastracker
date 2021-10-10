@@ -17,30 +17,35 @@ import (
 
 // Github implements Interface over Github issues.
 type Github struct {
-	cl      *http.Client
-	baseURL string
-	log     *log.Logger
-	mux     *http.ServeMux
-
 	webhooks map[string]string // map[internalID]externalID
 
-	trackerName string
-	whURL       string
+	baseURL string
+
+	GithubProps
 	githubConn
 }
 
+// GithubProps describes parameters
+// needed to initialize Github driver.
+type GithubProps struct {
+	Log     *log.Logger
+	Client  *http.Client
+	Webhook WebhookProps
+	Tracker Props
+}
+
 // NewGithub makes new instance of Github.
-func NewGithub(cl *http.Client, log *log.Logger, confVars Vars) (*Github, error) {
-	res := &Github{cl: cl, baseURL: "https://api.github.com", log: log, webhooks: map[string]string{}}
-	if err := res.githubConn.parse(confVars); err != nil {
+func NewGithub(props GithubProps) (*Github, error) {
+	res := &Github{webhooks: map[string]string{}, GithubProps: props, baseURL: "https://api.github.com"}
+	if err := res.githubConn.parse(props.Tracker.Variables); err != nil {
 		return nil, fmt.Errorf("parse configuration: %w", err)
 	}
 
 	ts := oauth2.ReuseTokenSource(nil,
 		oauth2.StaticTokenSource(&oauth2.Token{AccessToken: res.AccessToken}),
 	)
-	tr := &oauth2.Transport{Source: ts, Base: cl.Transport}
-	res.cl.Transport = tr
+	tr := &oauth2.Transport{Source: ts, Base: props.Client.Transport}
+	res.Client.Transport = tr
 
 	return res, nil
 }
@@ -82,7 +87,7 @@ func (g *Github) Close(ctx context.Context) error {
 			continue
 		}
 
-		resp, err := g.cl.Do(req)
+		resp, err := g.Client.Do(req)
 		if err != nil {
 			merr = multierror.Append(merr, fmt.Errorf("do request: %w", err))
 			continue
@@ -91,14 +96,14 @@ func (g *Github) Close(ctx context.Context) error {
 		if resp.StatusCode != http.StatusNoContent {
 			rerr := ErrUnexpectedStatus{ResponseStatus: resp.StatusCode}
 			if rerr.ResponseBody, err = io.ReadAll(resp.Body); err != nil {
-				g.log.Printf("[WARN] failed to read github delete webhook response body for status %d",
+				g.Log.Printf("[WARN] failed to read github delete webhook response body for status %d",
 					resp.StatusCode)
 				continue
 			}
 		}
 	}
 	if err := merr.ErrorOrNil(); err != nil {
-		return fmt.Errorf("close github tracker %s: %w", g.trackerName, err)
+		return fmt.Errorf("close github tracker %s: %w", g.Tracker.Name, err)
 	}
 	return nil
 }
@@ -106,9 +111,9 @@ func (g *Github) Close(ctx context.Context) error {
 // SetUpTrigger sends a request to github for webhook and sets a handler for that webhook.
 func (g *Github) SetUpTrigger(ctx context.Context, vars Vars, cb Callback) error {
 	whID := uuid.NewString()
-	g.mux.HandleFunc(whID, g.whHandler(whID, cb))
+	g.Webhook.Mux.HandleFunc(whID, g.whHandler(whID, cb))
 
-	bts, err := json.Marshal(g.parseHookReq(g.whURL+"/"+whID, vars))
+	bts, err := json.Marshal(g.parseHookReq(g.Webhook.BaseURL+"/"+whID, vars))
 	if err != nil {
 		return fmt.Errorf("marshal hook request: %w", err)
 	}
@@ -120,7 +125,7 @@ func (g *Github) SetUpTrigger(ctx context.Context, vars Vars, cb Callback) error
 		return fmt.Errorf("create request: %w", err)
 	}
 
-	resp, err := g.cl.Do(req)
+	resp, err := g.Client.Do(req)
 	if err != nil {
 		return fmt.Errorf("do request: %w", err)
 	}
@@ -128,7 +133,7 @@ func (g *Github) SetUpTrigger(ctx context.Context, vars Vars, cb Callback) error
 	if resp.StatusCode != http.StatusCreated {
 		rerr := ErrUnexpectedStatus{RequestBody: bts, ResponseStatus: resp.StatusCode}
 		if rerr.ResponseBody, err = io.ReadAll(resp.Body); err != nil {
-			g.log.Printf("[WARN] failed to read github create webhook response body for status %d",
+			g.Log.Printf("[WARN] failed to read github create webhook response body for status %d",
 				resp.StatusCode)
 			return rerr
 		}
@@ -172,7 +177,7 @@ func (g *Github) issue(ctx context.Context, method, id string, vars Vars) (respI
 		return "", fmt.Errorf("create request: %w", err)
 	}
 
-	resp, err := g.cl.Do(req)
+	resp, err := g.Client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("do request: %w", err)
 	}
@@ -180,7 +185,7 @@ func (g *Github) issue(ctx context.Context, method, id string, vars Vars) (respI
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		rerr := ErrUnexpectedStatus{RequestBody: bts, ResponseStatus: resp.StatusCode}
 		if rerr.ResponseBody, err = io.ReadAll(resp.Body); err != nil {
-			g.log.Printf("[WARN] failed to read github create issue response body for status %d",
+			g.Log.Printf("[WARN] failed to read github create issue response body for status %d",
 				resp.StatusCode)
 			return "", rerr
 		}
@@ -249,7 +254,7 @@ func (g *Github) whHandler(id string, cb Callback) func(http.ResponseWriter, *ht
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&resp); err != nil {
-			g.log.Printf("[WARN] failed to parse github request on %s webhook: %v", id, err)
+			g.Log.Printf("[WARN] failed to parse github request on %s webhook: %v", id, err)
 			return
 		}
 
@@ -261,7 +266,7 @@ func (g *Github) whHandler(id string, cb Callback) func(http.ResponseWriter, *ht
 		}
 
 		if err := cb.Do(r.Context(), upd); err != nil {
-			g.log.Printf("[WARN] callback on %s (update %+v) returned error: %v", id, upd, err)
+			g.Log.Printf("[WARN] callback on %s (update %+v) returned error: %v", id, upd, err)
 			return
 		}
 	}

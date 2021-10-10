@@ -27,6 +27,9 @@ type Run struct {
 			Timeout time.Duration `long:"timeout" env:"TIMEOUT" default:"30s" description:"bolt timeout"`
 		} `group:"bolt" namespace:"bolt" env-namespace:"BOLT"`
 	} `group:"store" namespace:"store" env-namespace:"STORE"`
+	Webhook struct {
+		BaseURL string `long:"base_url" env:"BASE_URL" description:"base url for webhooks"`
+	} `group:"webhook" namespace:"webhook" env-namespace:"WEBHOOK"`
 }
 
 // Execute runs the command
@@ -83,19 +86,28 @@ func executeVars(varTmpls map[string]string) (map[string]string, error) {
 
 func (r Run) initializeTrackers(conf Config) (map[string]tracker.Interface, error) {
 	res := map[string]tracker.Interface{}
+	whMux := http.NewServeMux()
 
 	for _, trackerConf := range conf.Trackers {
 		vars, err := executeVars(trackerConf.Vars)
 		if err != nil {
 			return nil, fmt.Errorf("tracker %s execute vars: %w", trackerConf.Name, err)
 		}
+
 		switch trackerConf.Driver {
 		case "github":
-			gh, err := tracker.NewGithub(&http.Client{Timeout: 5 * time.Second}, log.Default(), vars)
+			submux := http.NewServeMux()
+			whMux.Handle("/"+trackerConf.Name, submux)
+
+			res[trackerConf.Name], err = tracker.NewGithub(tracker.GithubProps{
+				Log:     log.Default(),
+				Client:  &http.Client{Timeout: 5 * time.Second},
+				Webhook: tracker.WebhookProps{Mux: submux, BaseURL: r.Webhook.BaseURL},
+				Tracker: tracker.Props{Name: trackerConf.Name, Variables: vars},
+			})
 			if err != nil {
 				return nil, fmt.Errorf("github tracker %s: %w", trackerConf.Name, err)
 			}
-			res[trackerConf.Name] = gh
 		case "asana":
 			panic("not implemented")
 		case "telegram":

@@ -2,8 +2,7 @@ package tracker
 
 import (
 	"context"
-	"fmt"
-	"strings"
+	"net/http"
 
 	"github.com/cappuccinotm/dastracker/app/store"
 )
@@ -40,44 +39,15 @@ type Response struct {
 	ID string // id of the created task in the tracker.
 }
 
-// Vars is an alias for a map with variable values.
-type Vars map[string]string
-
-// Has returns true if variable with specified key is present.
-func (v Vars) Has(key string) bool { _, ok := v[key]; return ok }
-
-// Get returns the value of the variable.
-func (v Vars) Get(name string) string { return v[name] }
-
-// Set sets the value of the variable.
-func (v *Vars) Set(name, val string) { (*v)[name] = val }
-
-// List returns a list of strings from var's
-// value parsed in form of "string1,string2,string3"
-func (v Vars) List(s string) []string { return strings.Split(v.Get(s), ",") }
-
-// ErrInvalidConf indicates that there appeared an error in the tracker configuration.
-type ErrInvalidConf string
-
-// Error returns error message, wrapped by ErrInvalidConf.
-func (e ErrInvalidConf) Error() string { return fmt.Sprintf("invalid configuration: %s", string(e)) }
-
-// ErrUnsupportedMethod indicates that the requested method
-// is not supported by the driver.
-type ErrUnsupportedMethod string
-
-// Error returns the string representation of the error.
-func (e ErrUnsupportedMethod) Error() string { return fmt.Sprintf("unsupported method: %s", string(e)) }
-
-// ErrUnexpectedStatus indicates that the remote server returned
-// unexpected response status on the request.
-type ErrUnexpectedStatus struct {
-	RequestBody    []byte
-	ResponseBody   []byte
-	ResponseStatus int
+// WebhookProps describes parameters needed to tracker
+// in order to instantiate a webhook.
+type WebhookProps struct {
+	Mux     *http.ServeMux
+	BaseURL string
 }
 
-// Error returns the string representation of the error.
-func (e ErrUnexpectedStatus) Error() string {
-	return fmt.Sprintf("unexpected status: %d", e.ResponseStatus)
+// Props describes basic properties for tracker.
+type Props struct {
+	Name      string
+	Variables Vars
 }
