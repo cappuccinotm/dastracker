@@ -27,6 +27,10 @@ func (p *Plugin) Listen(ctx context.Context, rcvr interface{}) (err error) {
 }
 
 func (p *Plugin) SetUpTriggerCall(req SetUpTriggerReq, resp *SetUpTriggerResp) error {
+	if p.SetUpTrigger == nil {
+		return nil
+	}
+
 	return p.SetUpTrigger(req, resp)
 }
 

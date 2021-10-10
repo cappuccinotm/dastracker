@@ -68,7 +68,7 @@ func (rc *RPC) SetUpTrigger(_ context.Context, vars lib.Vars, cb Callback) error
 
 	var resp lib.SetUpTriggerResp
 
-	err := rc.cl.Call("set_up_trigger", lib.SetUpTriggerReq{URL: url, Vars: vars}, &resp)
+	err := rc.cl.Call("SetUpTriggerCall", lib.SetUpTriggerReq{URL: url, Vars: vars}, &resp)
 	if err != nil {
 		return fmt.Errorf("call set_up_trigger: %w", err)
 	}
