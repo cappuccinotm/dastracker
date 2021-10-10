@@ -5,19 +5,21 @@ import (
 	"log"
 	"os"
 
+	"github.com/cappuccinotm/dastracker/app/cmd"
 	"github.com/hashicorp/logutils"
 	"github.com/jessevdk/go-flags"
 )
 
 // Opts describes cli commands, arguments and flags of the application.
 type Opts struct {
-	Debug bool `long:"dbg" env:"DEBUG" description:"turn on debug mode"`
+	Run   cmd.Run `command:"run"`
+	Debug bool    `long:"dbg" env:"DEBUG" description:"turn on debug mode"`
 }
 
 var version = "unknown"
 
 func main() {
-	fmt.Printf("asanator, version: %s\n", version)
+	fmt.Printf("dastracker, version: %s\n", version)
 
 	var opts Opts
 	p := flags.NewParser(&opts, flags.Default)

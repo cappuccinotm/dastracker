@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/cappuccinotm/dastracker/app/store"
+	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/google/uuid"
 )
 
@@ -12,8 +13,8 @@ import (
 // All computable values from Vars must be already evaluated, thus
 // the finite values are provided.
 type Interface interface {
-	Call(ctx context.Context, call Request) (Response, error)
-	SetUpTrigger(ctx context.Context, vars Vars, cb Callback) error
+	Call(ctx context.Context, call lib.Request) (lib.Response, error)
+	SetUpTrigger(ctx context.Context, vars lib.Vars, cb Callback) error
 	Close(ctx context.Context) error
 }
 
@@ -27,18 +28,6 @@ type CallbackFunc func(context.Context, store.Update) error
 
 // Do invokes the wrapped method with provided arguments.
 func (f CallbackFunc) Do(ctx context.Context, upd store.Update) error { return f(ctx, upd) }
-
-// Request describes a requests to tracker's action.
-type Request struct {
-	Method   string
-	Vars     Vars
-	TicketID string // might be empty, in case if task is not registered yet
-}
-
-// Response describes possible return values of the Interface.Call
-type Response struct {
-	ID string // id of the created task in the tracker.
-}
 
 // WebhookProps describes parameters needed to tracker
 // in order to instantiate a webhook.
@@ -56,5 +45,5 @@ func (w *WebhookProps) newWebHook(fn func(w http.ResponseWriter, r *http.Request
 // Props describes basic properties for tracker.
 type Props struct {
 	Name      string
-	Variables Vars
+	Variables lib.Vars
 }

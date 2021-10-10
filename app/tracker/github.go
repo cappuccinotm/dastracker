@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/cappuccinotm/dastracker/app/store"
+	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/oauth2"
 )
@@ -50,25 +51,25 @@ func NewGithub(props GithubProps) (*Github, error) {
 }
 
 // Call multiplexes requests via the provided Request.Method.
-func (g *Github) Call(ctx context.Context, call Request) (Response, error) {
+func (g *Github) Call(ctx context.Context, call lib.Request) (lib.Response, error) {
 	switch call.Method {
 	case "update_task":
 		if call.TicketID == "" {
 			id, err := g.createIssue(ctx, call.Vars)
 			if err != nil {
-				return Response{}, fmt.Errorf("create task: %w", err)
+				return lib.Response{}, fmt.Errorf("create task: %w", err)
 			}
 
-			return Response{ID: id}, nil
+			return lib.Response{ID: id}, nil
 		}
 
 		if err := g.updateIssue(ctx, call.TicketID, call.Vars); err != nil {
-			return Response{}, fmt.Errorf("update task: %w", err)
+			return lib.Response{}, fmt.Errorf("update task: %w", err)
 		}
 	default:
-		return Response{}, ErrUnsupportedMethod(call.Method)
+		return lib.Response{}, ErrUnsupportedMethod(call.Method)
 	}
-	return Response{}, nil
+	return lib.Response{}, nil
 }
 
 // Close stops all webhooks for github tracker.
@@ -108,7 +109,7 @@ func (g *Github) Close(ctx context.Context) error {
 }
 
 // SetUpTrigger sends a request to github for webhook and sets a handler for that webhook.
-func (g *Github) SetUpTrigger(ctx context.Context, vars Vars, cb Callback) error {
+func (g *Github) SetUpTrigger(ctx context.Context, vars lib.Vars, cb Callback) error {
 	whURL := g.Webhook.newWebHook(g.whHandler(cb))
 
 	bts, err := json.Marshal(g.parseHookReq(whURL, vars))
@@ -149,16 +150,16 @@ func (g *Github) SetUpTrigger(ctx context.Context, vars Vars, cb Callback) error
 	return nil
 }
 
-func (g *Github) createIssue(ctx context.Context, vars Vars) (id string, err error) {
+func (g *Github) createIssue(ctx context.Context, vars lib.Vars) (id string, err error) {
 	return g.issue(ctx, http.MethodPost, "", vars)
 }
 
-func (g *Github) updateIssue(ctx context.Context, id string, vars Vars) error {
+func (g *Github) updateIssue(ctx context.Context, id string, vars lib.Vars) error {
 	_, err := g.issue(ctx, http.MethodPatch, id, vars)
 	return err
 }
 
-func (g *Github) issue(ctx context.Context, method, id string, vars Vars) (respID string, err error) {
+func (g *Github) issue(ctx context.Context, method, id string, vars lib.Vars) (respID string, err error) {
 	bts, err := json.Marshal(g.parseIssueReq(vars))
 	if err != nil {
 		return "", fmt.Errorf("marshal request body: %w", err)
@@ -214,7 +215,7 @@ type ghHookReq struct {
 	Active bool     `json:"active"`
 }
 
-func (g *Github) parseHookReq(url string, vars Vars) ghHookReq {
+func (g *Github) parseHookReq(url string, vars lib.Vars) ghHookReq {
 	r := ghHookReq{}
 	r.Events = vars.List("events")
 	r.Active = true
@@ -230,7 +231,7 @@ type ghIssueReq struct {
 	Milestone string   `json:"milestone"`
 }
 
-func (g *Github) parseIssueReq(vars Vars) ghIssueReq {
+func (g *Github) parseIssueReq(vars lib.Vars) ghIssueReq {
 	r := ghIssueReq{}
 	r.Title = vars.Get("title")
 	r.Body = vars.Get("body")
@@ -276,7 +277,7 @@ type githubConn struct {
 	AccessToken string
 }
 
-func (r *githubConn) parse(vars Vars) error {
+func (r *githubConn) parse(vars lib.Vars) error {
 	var ok bool
 
 	if r.Name, ok = vars["owner"]; !ok {

@@ -34,17 +34,17 @@ jobs:
         fields: ["due_at", "due_on", "dependencies" ]
         resource: "task"
     do:
-      - action: github_erp/update_task
+      - action: github_erp/UpdateTask
         with:
           body: {{ .Update.Body }}
           title: {{ .Update.Title }}
           labels: {{ seq (values .Update.Fields) }}
 
-      - action: telegram/send
+      - action: telegram/Send
         with:
           message: "Task \"{{.Update.Title}}\" has been updated, link: {{.Update.URL}}"
 
-      - action: rpc/print
+      - action: rpc/Print
         with:
           message: "Task \"{{.Update.Title}}\" has been updated and printed to the terminal."
 

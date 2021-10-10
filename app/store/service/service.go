@@ -11,6 +11,7 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/tracker"
+	"github.com/cappuccinotm/dastracker/lib"
 )
 
 // Service wraps engine.Interface with methods
@@ -30,7 +31,7 @@ func NewService(eng engine.Interface, trackers map[string]tracker.Interface, job
 type Trigger struct {
 	Tracker string
 	Job     string
-	Vars    tracker.Vars
+	Vars    lib.Vars
 }
 
 // InitTrigger initializes triggers in trackers.
@@ -94,7 +95,7 @@ func (s *Service) onTrigger(ctx context.Context, trackerName, jobName string, up
 			varVals[name] = buf.String()
 		}
 
-		req := tracker.Request{Method: action.Method, Vars: varVals}
+		req := lib.Request{Method: action.Method, Vars: varVals}
 
 		if ticketID, ok := oldTicket.TrackerIDs[action.Tracker]; ok {
 			req.TicketID = ticketID

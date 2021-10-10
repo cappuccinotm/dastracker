@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/cappuccinotm/dastracker/app/store"
+	"github.com/cappuccinotm/dastracker/lib"
 )
 
 // RPC implements Interface and delegates all calls
@@ -22,7 +23,7 @@ type RPC struct {
 }
 
 // NewRPC makes new instance of RPC.
-func NewRPC(vars Vars, dl RPCDialer) (*RPC, error) {
+func NewRPC(vars lib.Vars, dl RPCDialer) (*RPC, error) {
 	res := &RPC{}
 	var ok bool
 	var err error
@@ -42,15 +43,15 @@ func NewRPC(vars Vars, dl RPCDialer) (*RPC, error) {
 // Close does no-op
 func (rc *RPC) Close(_ context.Context) error { return nil }
 
-func (rc *RPC) Call(ctx context.Context, call Request) (Response, error) {
-	resp := Response{}
+func (rc *RPC) Call(_ context.Context, call lib.Request) (lib.Response, error) {
+	resp := lib.Response{}
 	if err := rc.cl.Call(call.Method, call, &resp); err != nil {
-		return Response{}, fmt.Errorf("call rpc method %s: %w", call.Method, err)
+		return lib.Response{}, fmt.Errorf("call rpc method %s: %w", call.Method, err)
 	}
 	return resp, nil
 }
 
-func (rc *RPC) SetUpTrigger(_ context.Context, vars Vars, cb Callback) error {
+func (rc *RPC) SetUpTrigger(_ context.Context, vars lib.Vars, cb Callback) error {
 	url := rc.Webhook.newWebHook(func(w http.ResponseWriter, r *http.Request) {
 		upd := store.Update{}
 
@@ -65,21 +66,14 @@ func (rc *RPC) SetUpTrigger(_ context.Context, vars Vars, cb Callback) error {
 		}
 	})
 
-	var resp RPCSetUpResp
+	var resp lib.SetUpTriggerResp
 
-	err := rc.cl.Call("set_up_trigger", RPCSetUpReq{URL: url, Vars: vars}, resp)
+	err := rc.cl.Call("set_up_trigger", lib.SetUpTriggerReq{URL: url, Vars: vars}, &resp)
 	if err != nil {
 		return fmt.Errorf("call set_up_trigger: %w", err)
 	}
 
 	return nil
-}
-
-type RPCSetUpResp struct{}
-
-type RPCSetUpReq struct {
-	URL  string
-	Vars Vars
 }
 
 // RPCDialer is a maker interface dialing to rpc server and returning new RPCClient
