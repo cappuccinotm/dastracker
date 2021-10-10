@@ -22,8 +22,8 @@ type Service struct {
 }
 
 // NewService makes new instance of Service.
-func NewService(eng engine.Interface, trackers map[string]tracker.Interface) *Service {
-	return &Service{eng: eng, trackers: trackers}
+func NewService(eng engine.Interface, trackers map[string]tracker.Interface, jobs map[string]Job) *Service {
+	return &Service{eng: eng, trackers: trackers, jobs: jobs}
 }
 
 // Trigger describes parameters for trigger.

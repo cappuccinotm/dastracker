@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
+	"strings"
 	"text/template"
 	"time"
 
@@ -55,7 +56,12 @@ func (r Run) Execute(_ []string) error {
 		return fmt.Errorf("make data engine: %w", err)
 	}
 
-	svc := service.NewService(eng, trackers)
+	parsedJobs, err := r.parseJobs(conf.Jobs)
+	if err != nil {
+		return fmt.Errorf("parse jobs: %w", err)
+	}
+
+	svc := service.NewService(eng, trackers, parsedJobs)
 
 	if err = r.initTriggers(svc, conf); err != nil {
 		return fmt.Errorf("initialzie triggers: %w", err)
@@ -64,7 +70,19 @@ func (r Run) Execute(_ []string) error {
 	return nil
 }
 
-var funcs = map[string]interface{}{"env": os.Getenv}
+var funcs = map[string]interface{}{
+	"env": os.Getenv,
+	"values": func(s map[string]string) []string {
+		var res []string
+		for _, v := range s {
+			res = append(res, v)
+		}
+		return res
+	},
+	"seq": func(s []string) string {
+		return strings.Join(s, ",")
+	},
+}
 
 func executeVars(varTmpls map[string]string) (map[string]string, error) {
 	res := map[string]string{}
@@ -152,4 +170,34 @@ func (r Run) initTriggers(svc *service.Service, conf Config) error {
 	}
 
 	return nil
+}
+
+func (r Run) parseJobs(jobs []Job) (map[string]service.Job, error) {
+	res := map[string]service.Job{}
+
+	for _, jobCfg := range jobs {
+		job := service.Job{Name: jobCfg.Name, Actions: make([]service.Action, len(jobCfg.Actions))}
+		for actIdx, actCfg := range jobCfg.Actions {
+			act := service.Action{Vars: map[string]*template.Template{}}
+			act.Tracker, act.Method = parseMethodName(actCfg.Method)
+
+			for vname, vval := range actCfg.Vars {
+				tmpl, err := template.New("").Funcs(funcs).Parse(vval)
+				if err != nil {
+					return nil, fmt.Errorf("parse var %s of action %s in job %s: %w", vname, act.Method, job.Name, err)
+				}
+
+				act.Vars[vname] = tmpl
+			}
+			job.Actions[actIdx] = act
+		}
+		res[jobCfg.Name] = job
+	}
+
+	return res, nil
+}
+
+func parseMethodName(method string) (string, string) {
+	res := strings.Split(method, "/")
+	return res[0], res[1]
 }
