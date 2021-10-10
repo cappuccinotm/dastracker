@@ -21,3 +21,4 @@
 .vscode
 db
 bin/
+_store/
