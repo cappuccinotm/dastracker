@@ -30,6 +30,9 @@ func NewRPC(vars Vars, dl RPCDialer) (*RPC, error) {
 	return res, nil
 }
 
+// Close does no-op
+func (r *RPC) Close(_ context.Context) error {}
+
 func (r *RPC) Call(ctx context.Context, call Request) (Response, error) {
 	resp := Response{}
 	if err := r.cl.Call(call.Method, call, &resp); err != nil {

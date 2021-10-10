@@ -14,6 +14,7 @@ import (
 type Interface interface {
 	Call(ctx context.Context, call Request) (Response, error)
 	SetUpTrigger(ctx context.Context, vars Vars, cb Callback) error
+	Close(ctx context.Context) error
 }
 
 // Callback invokes when some action that trigger describes has been appeared.

@@ -12,7 +12,7 @@ import (
 
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/store/service"
-	"github.com/cappuccinotm/dastracker/tracker"
+	"github.com/cappuccinotm/dastracker/app/tracker"
 	"gopkg.in/yaml.v3"
 )
 

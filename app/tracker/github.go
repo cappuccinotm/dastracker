@@ -11,6 +11,7 @@ import (
 
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/google/uuid"
+	"github.com/hashicorp/go-multierror"
 	"golang.org/x/oauth2"
 )
 
@@ -21,6 +22,8 @@ type Github struct {
 	log     *log.Logger
 	mux     *http.ServeMux
 
+	webhooks map[string]string // map[internalID]externalID
+
 	trackerName string
 	whURL       string
 	githubConn
@@ -28,7 +31,7 @@ type Github struct {
 
 // NewGithub makes new instance of Github.
 func NewGithub(cl *http.Client, log *log.Logger, confVars Vars) (*Github, error) {
-	res := &Github{cl: cl, baseURL: "https://api.github.com", log: log}
+	res := &Github{cl: cl, baseURL: "https://api.github.com", log: log, webhooks: map[string]string{}}
 	if err := res.githubConn.parse(confVars); err != nil {
 		return nil, fmt.Errorf("parse configuration: %w", err)
 	}
@@ -62,6 +65,42 @@ func (g *Github) Call(ctx context.Context, call Request) (Response, error) {
 		return Response{}, ErrUnsupportedMethod(call.Method)
 	}
 	return Response{}, nil
+}
+
+// Close stops all webhooks for github tracker.
+func (g *Github) Close(ctx context.Context) error {
+	merr := &multierror.Error{}
+	for _, externalID := range g.webhooks {
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodDelete,
+			fmt.Sprintf("%s/repos/%s/%s/hooks/%s", g.baseURL, g.Owner, g.Name, externalID),
+			nil,
+		)
+		if err != nil {
+			merr = multierror.Append(merr, fmt.Errorf("create request to delete webhook %s: %w", externalID, err))
+			continue
+		}
+
+		resp, err := g.cl.Do(req)
+		if err != nil {
+			merr = multierror.Append(merr, fmt.Errorf("do request: %w", err))
+			continue
+		}
+
+		if resp.StatusCode != http.StatusNoContent {
+			rerr := ErrUnexpectedStatus{ResponseStatus: resp.StatusCode}
+			if rerr.ResponseBody, err = io.ReadAll(resp.Body); err != nil {
+				g.log.Printf("[WARN] failed to read github delete webhook response body for status %d",
+					resp.StatusCode)
+				continue
+			}
+		}
+	}
+	if err := merr.ErrorOrNil(); err != nil {
+		return fmt.Errorf("close github tracker %s: %w", g.trackerName, err)
+	}
+	return nil
 }
 
 // SetUpTrigger sends a request to github for webhook and sets a handler for that webhook.
@@ -103,7 +142,7 @@ func (g *Github) SetUpTrigger(ctx context.Context, vars Vars, cb Callback) error
 		return fmt.Errorf("unmarshal created issue's id: %w", err)
 	}
 
-	// todo use webhook id to unset it
+	g.webhooks[whID] = respBody.ID
 	return nil
 }
 
