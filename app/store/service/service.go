@@ -8,11 +8,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
-	"github.com/cappuccinotm/dastracker/app/store/tracker"
+	"github.com/cappuccinotm/dastracker/app/tracker"
 )
 
 // Service wraps engine.Interface with methods
@@ -74,7 +72,7 @@ func (s *Service) onTrigger(ctx context.Context, trackerName, jobName string, up
 	oldTicket, err := s.eng.Get(ctx, trackerName, update.TrackerTaskID)
 	switch {
 	case errors.Is(err, engine.ErrNotFound):
-		oldTicket = store.Ticket{ID: uuid.NewString(), Fields: map[string]string{}}
+		oldTicket = store.Ticket{Fields: map[string]string{}}
 	case err != nil:
 		return fmt.Errorf("get ticket %s/%s: %w", trackerName, update.TrackerTaskID, err)
 	}
@@ -116,8 +114,16 @@ func (s *Service) onTrigger(ctx context.Context, trackerName, jobName string, up
 	ticket.Title = update.Title
 	ticket.Fields = update.Fields
 
-	if err := s.eng.Update(ctx, ticket); err != nil {
-		return fmt.Errorf("update ticket: %w", err)
+	if ticket.ID != "" {
+		if err := s.eng.Update(ctx, ticket); err != nil {
+			return fmt.Errorf("update ticket: %w", err)
+		}
+
+		return nil
+	}
+
+	if ticket.ID, err = s.eng.Create(ctx, ticket); err != nil {
+		return fmt.Errorf("create ticket: %w", err)
 	}
 
 	return nil

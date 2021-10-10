@@ -22,6 +22,8 @@ trackers:
 
   - name: customrpc
     driver: rpc
+    with:
+      address: {{ env "CUSTOM_RPC_ADDRESS" }}
 
 jobs:
   - name: update task in github when task in asana is updated

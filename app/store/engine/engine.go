@@ -9,7 +9,7 @@ import (
 
 // Interface describes methods each storage should implement.
 type Interface interface {
-	Create(ctx context.Context, ticket store.Ticket) error
+	Create(ctx context.Context, ticket store.Ticket) (ticketID string, err error)
 	Update(ctx context.Context, ticket store.Ticket) error
 	Get(ctx context.Context, trackerName, trackerTaskID string) (store.Ticket, error)
 }

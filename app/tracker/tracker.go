@@ -42,6 +42,9 @@ type Response struct {
 // Vars is an alias for a map with variable values.
 type Vars map[string]string
 
+// Has returns true if variable with specified key is present.
+func (v Vars) Has(key string) bool { _, ok := v[key]; return ok }
+
 // Get returns the value of the variable.
 func (v Vars) Get(name string) string { return v[name] }
 

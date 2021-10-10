@@ -12,6 +12,7 @@ type Ticket struct {
 
 // Update describes a ticket update.
 type Update struct {
+	URL           string
 	Tracker       string
 	TrackerTaskID string
 	Body          string

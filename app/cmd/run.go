@@ -5,13 +5,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/rpc"
 	"os"
 	"text/template"
 	"time"
 
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/store/service"
-	"github.com/cappuccinotm/dastracker/app/store/tracker"
+	"github.com/cappuccinotm/dastracker/tracker"
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,7 +29,7 @@ type Run struct {
 }
 
 // Execute runs the command
-func (r Run) Execute(args []string) error {
+func (r Run) Execute(_ []string) error {
 	f, err := os.Open(r.ConfLocation)
 	if err != nil {
 		return fmt.Errorf("open config file at location %s: %w", r.ConfLocation, err)
@@ -99,7 +100,14 @@ func (r Run) initializeTrackers(conf Config) (map[string]tracker.Interface, erro
 		case "telegram":
 			panic("not implemented")
 		case "rpc":
-			panic("not implemented")
+			rcl, err := tracker.NewRPC(trackerConf.Vars,
+				tracker.RPCDialerFunc(func(network, address string) (tracker.RPCClient, error) {
+					return rpc.Dial(network, address)
+				}))
+			if err != nil {
+				return nil, fmt.Errorf("rpc tracker %s: %w", trackerConf.Name, err)
+			}
+			res[trackerConf.Name] = rcl
 		default:
 			return nil, fmt.Errorf("unsupported driver %s for %s", trackerConf.Driver, trackerConf.Name)
 		}
