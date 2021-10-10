@@ -15,6 +15,7 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/store/service"
 	"github.com/cappuccinotm/dastracker/app/tracker"
+	bolt "go.etcd.io/bbolt"
 	"gopkg.in/yaml.v3"
 )
 
@@ -112,10 +113,6 @@ func (r Run) initializeTrackers(conf Config) (map[string]tracker.Interface, erro
 			if err != nil {
 				return nil, fmt.Errorf("github tracker %s: %w", trackerConf.Name, err)
 			}
-		case "asana":
-			panic("not implemented")
-		case "telegram":
-			panic("not implemented")
 		case "rpc":
 			rcl, err := tracker.NewRPC(trackerConf.Vars,
 				tracker.RPCDialerFunc(func(network, address string) (tracker.RPCClient, error) {
@@ -133,13 +130,19 @@ func (r Run) initializeTrackers(conf Config) (map[string]tracker.Interface, erro
 	return res, nil
 }
 
-func (r Run) makeDataStore() (engine.Interface, error) {
+func (r Run) makeDataStore() (res engine.Interface, err error) {
 	switch r.Store.Type {
 	case "bolt":
-		panic("not implemented")
+		boltDB, err := engine.NewBolt(r.Store.Bolt.Path, bolt.Options{Timeout: r.Store.Bolt.Timeout})
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize bolt storage at %s: %w", r.Store.Bolt.Path, err)
+		}
+		res = boltDB
 	default:
 		return nil, fmt.Errorf("unsupported storage type %s", r.Store.Type)
 	}
+
+	return res, nil
 }
 
 func (r Run) initTriggers(svc *service.Service, conf Config) error {

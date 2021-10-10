@@ -3,10 +3,12 @@ module github.com/cappuccinotm/dastracker
 go 1.17
 
 require (
+	github.com/cappuccinotm/dastracker/lib v0.0.0-20211010191210-4fb705d55ee7
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/logutils v1.0.0
 	github.com/jessevdk/go-flags v1.5.0
+	go.etcd.io/bbolt v1.3.6
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )

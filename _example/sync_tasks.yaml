@@ -8,17 +8,12 @@ trackers:
     with:
       workspace_id: kazanexpress.ru
 
-  - name: github_erp
+  - name: gh_dastracker
     driver: github
     with:
-      owner: KazanExpress
-      name: erp-photostudio
+      owner: cappuccinotm
+      name: dastracker
       access_token: {{ env "GITHUB_ACCESS_TOKEN" }}
-
-  - name: telegram
-    driver: telegram
-    with:
-      token: {{ env "TELEGRAM_BOT_TOKEN" }}
 
   - name: customrpc
     driver: rpc
@@ -26,30 +21,12 @@ trackers:
       address: {{ env "CUSTOM_RPC_ADDRESS" }}
 
 jobs:
-  - name: update task in github when task in asana is updated
+  - name: print task update if task is received
     on:
-      tracker: asana
+      tracker: gh_dastracker
       with:
-        action: "changed"
-        fields: ["due_at", "due_on", "dependencies" ]
-        resource: "task"
+        events: [ "issue" ]
     do:
-      - action: github_erp/UpdateTask
-        with:
-          body: {{ .Update.Body }}
-          title: {{ .Update.Title }}
-          labels: {{ seq (values .Update.Fields) }}
-
-      - action: telegram/Send
-        with:
-          message: "Task \"{{.Update.Title}}\" has been updated, link: {{.Update.URL}}"
-
       - action: rpc/Print
         with:
           message: "Task \"{{.Update.Title}}\" has been updated and printed to the terminal."
-
-  - name: update task in asana when task in github is updated
-    on:
-      tracker: github_erp
-      with:
-        events: [ "issue" ]
