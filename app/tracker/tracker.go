@@ -60,14 +60,14 @@ func (v Vars) List(s string) []string { return strings.Split(v.Get(s), ",") }
 type ErrInvalidConf string
 
 // Error returns error message, wrapped by ErrInvalidConf.
-func (e ErrInvalidConf) Error() string { return fmt.Sprintf("invalid configuration: %s", e) }
+func (e ErrInvalidConf) Error() string { return fmt.Sprintf("invalid configuration: %s", string(e)) }
 
 // ErrUnsupportedMethod indicates that the requested method
 // is not supported by the driver.
 type ErrUnsupportedMethod string
 
 // Error returns the string representation of the error.
-func (e ErrUnsupportedMethod) Error() string { return fmt.Sprintf("unsupported method: %s", e) }
+func (e ErrUnsupportedMethod) Error() string { return fmt.Sprintf("unsupported method: %s", string(e)) }
 
 // ErrUnexpectedStatus indicates that the remote server returned
 // unexpected response status on the request.

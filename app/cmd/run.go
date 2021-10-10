@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/rpc"
 	"os"
@@ -90,7 +91,7 @@ func (r Run) initializeTrackers(conf Config) (map[string]tracker.Interface, erro
 		}
 		switch trackerConf.Driver {
 		case "github":
-			gh, err := tracker.NewGithub(&http.Client{Timeout: 5 * time.Second}, vars)
+			gh, err := tracker.NewGithub(&http.Client{Timeout: 5 * time.Second}, log.Default(), vars)
 			if err != nil {
 				return nil, fmt.Errorf("github tracker %s: %w", trackerConf.Name, err)
 			}

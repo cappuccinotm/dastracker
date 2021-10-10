@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
       - name: Turn on debug mode if needed
         run: |
@@ -29,24 +31,18 @@ jobs:
 
       - name: Run tests and extract coverage
         run: |
+          cd app
           go test -mod=vendor -timeout=60s -covermode=count -coverprofile=$GITHUB_WORKSPACE/profile.cov_tmp ./...
           cat $GITHUB_WORKSPACE/profile.cov_tmp | grep -v "mock_" > $GITHUB_WORKSPACE/profile.cov
         env:
           CGO_ENABLED: 0
 
-      - name: Install golangci-lint and goveralls
+      - name: Submit coverage to codecov
         run: |
-          curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $GITHUB_WORKSPACE v1.41.1
-          go get -u github.com/mattn/goveralls
-      - name: Run linters
-        run: $GITHUB_WORKSPACE/golangci-lint run --config .golangci.yml ./...
+          cat $GITHUB_WORKSPACE/profile.cov > $GITHUB_WORKSPACE/coverage.txt
+          cd $GITHUB_WORKSPACE
+          bash <(curl -s https://codecov.io/bash)
         env:
-          GOFLAGS: "-mod=mod"
-          CGO_ENABLED: 0
-
-      - name: Submit coverage
-        run: $(go env GOPATH)/bin/goveralls -service="github" -coverprofile=$GITHUB_WORKSPACE/profile.cov
-        env:
-          COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
           GOFLAGS: "-mod=mod"
           CGO_ENABLED: 0
