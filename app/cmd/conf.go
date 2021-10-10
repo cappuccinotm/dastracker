@@ -1,5 +1,10 @@
 package cmd
 
+import (
+	"os"
+	"strings"
+)
+
 // Config describes a single config file.
 type Config struct {
 	Trackers []Tracker `yaml:"trackers"`
@@ -31,4 +36,19 @@ type Trigger struct {
 type Action struct {
 	Method string            `yaml:"action"`
 	Vars   map[string]string `yaml:"vars"`
+}
+
+// map of functions to parse from the config file
+var funcs = map[string]interface{}{
+	"env": os.Getenv,
+	"values": func(s map[string]string) []string {
+		var res []string
+		for _, v := range s {
+			res = append(res, v)
+		}
+		return res
+	},
+	"seq": func(s []string) string {
+		return strings.Join(s, ",")
+	},
 }

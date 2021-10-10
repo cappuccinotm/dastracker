@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/cappuccinotm/dastracker/app/store"
+	"github.com/google/uuid"
 )
 
 // Interface defines methods for each tracker.
@@ -44,6 +45,12 @@ type Response struct {
 type WebhookProps struct {
 	Mux     *http.ServeMux
 	BaseURL string
+}
+
+func (w *WebhookProps) newWebHook(fn func(w http.ResponseWriter, r *http.Request)) (url string) {
+	url = w.BaseURL + "/" + uuid.NewString()
+	w.Mux.HandleFunc(url, fn)
+	return url
 }
 
 // Props describes basic properties for tracker.

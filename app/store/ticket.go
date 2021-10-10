@@ -12,10 +12,10 @@ type Ticket struct {
 
 // Update describes a ticket update.
 type Update struct {
-	URL           string
-	Tracker       string
-	TrackerTaskID string
-	Body          string
-	Title         string
-	Fields        map[string]string // map[name]value
+	URL           string            `json:"url"`
+	Tracker       string            `json:"tracker"`
+	TrackerTaskID string            `json:"tracker_task_id"`
+	Body          string            `json:"body"`
+	Title         string            `json:"title"`
+	Fields        map[string]string `json:"fields"` // map[name]value
 }

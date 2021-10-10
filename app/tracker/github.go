@@ -10,7 +10,6 @@ import (
 	"net/http"
 
 	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/oauth2"
 )
@@ -110,10 +109,9 @@ func (g *Github) Close(ctx context.Context) error {
 
 // SetUpTrigger sends a request to github for webhook and sets a handler for that webhook.
 func (g *Github) SetUpTrigger(ctx context.Context, vars Vars, cb Callback) error {
-	whID := uuid.NewString()
-	g.Webhook.Mux.HandleFunc(whID, g.whHandler(whID, cb))
+	whURL := g.Webhook.newWebHook(g.whHandler(cb))
 
-	bts, err := json.Marshal(g.parseHookReq(g.Webhook.BaseURL+"/"+whID, vars))
+	bts, err := json.Marshal(g.parseHookReq(whURL, vars))
 	if err != nil {
 		return fmt.Errorf("marshal hook request: %w", err)
 	}
@@ -147,7 +145,7 @@ func (g *Github) SetUpTrigger(ctx context.Context, vars Vars, cb Callback) error
 		return fmt.Errorf("unmarshal created issue's id: %w", err)
 	}
 
-	g.webhooks[whID] = respBody.ID
+	g.webhooks[whURL] = respBody.ID
 	return nil
 }
 
@@ -241,7 +239,7 @@ func (g *Github) parseIssueReq(vars Vars) ghIssueReq {
 	return r
 }
 
-func (g *Github) whHandler(id string, cb Callback) func(http.ResponseWriter, *http.Request) {
+func (g *Github) whHandler(cb Callback) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var resp struct {
 			Action string `json:"action"`
@@ -254,7 +252,7 @@ func (g *Github) whHandler(id string, cb Callback) func(http.ResponseWriter, *ht
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&resp); err != nil {
-			g.Log.Printf("[WARN] failed to parse github request on %s webhook: %v", id, err)
+			g.Log.Printf("[WARN] failed to parse github request on %s webhook: %v", g.Tracker.Name, err)
 			return
 		}
 
@@ -266,7 +264,7 @@ func (g *Github) whHandler(id string, cb Callback) func(http.ResponseWriter, *ht
 		}
 
 		if err := cb.Do(r.Context(), upd); err != nil {
-			g.Log.Printf("[WARN] callback on %s (update %+v) returned error: %v", id, upd, err)
+			g.Log.Printf("[WARN] callback on github/%s (update %+v) returned error: %v", g.Tracker.Name, upd, err)
 			return
 		}
 	}

@@ -70,20 +70,6 @@ func (r Run) Execute(_ []string) error {
 	return nil
 }
 
-var funcs = map[string]interface{}{
-	"env": os.Getenv,
-	"values": func(s map[string]string) []string {
-		var res []string
-		for _, v := range s {
-			res = append(res, v)
-		}
-		return res
-	},
-	"seq": func(s []string) string {
-		return strings.Join(s, ",")
-	},
-}
-
 func executeVars(varTmpls map[string]string) (map[string]string, error) {
 	res := map[string]string{}
 	for name, val := range varTmpls {

@@ -2,7 +2,12 @@ package tracker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
+
+	"github.com/cappuccinotm/dastracker/app/store"
 )
 
 // RPC implements Interface and delegates all calls
@@ -10,6 +15,10 @@ import (
 type RPC struct {
 	address string
 	cl      RPCClient
+
+	log     *log.Logger
+	Webhook WebhookProps
+	Tracker Props
 }
 
 // NewRPC makes new instance of RPC.
@@ -31,18 +40,46 @@ func NewRPC(vars Vars, dl RPCDialer) (*RPC, error) {
 }
 
 // Close does no-op
-func (r *RPC) Close(_ context.Context) error { return nil }
+func (rc *RPC) Close(_ context.Context) error { return nil }
 
-func (r *RPC) Call(ctx context.Context, call Request) (Response, error) {
+func (rc *RPC) Call(ctx context.Context, call Request) (Response, error) {
 	resp := Response{}
-	if err := r.cl.Call(call.Method, call, &resp); err != nil {
+	if err := rc.cl.Call(call.Method, call, &resp); err != nil {
 		return Response{}, fmt.Errorf("call rpc method %s: %w", call.Method, err)
 	}
 	return resp, nil
 }
 
-func (r *RPC) SetUpTrigger(ctx context.Context, vars Vars, cb Callback) error {
-	panic("not implemented")
+func (rc *RPC) SetUpTrigger(_ context.Context, vars Vars, cb Callback) error {
+	url := rc.Webhook.newWebHook(func(w http.ResponseWriter, r *http.Request) {
+		upd := store.Update{}
+
+		if err := json.NewDecoder(r.Body).Decode(&upd); err != nil {
+			rc.log.Printf("[WARN] failed to decode webhook for rpc/%s: %v", rc.Tracker.Name, err)
+			return
+		}
+
+		if err := cb.Do(r.Context(), upd); err != nil {
+			rc.log.Printf("[WARN] callback returned error for rpc/%s: %v", rc.Tracker.Name, err)
+			return
+		}
+	})
+
+	var resp RPCSetUpResp
+
+	err := rc.cl.Call("set_up_trigger", RPCSetUpReq{URL: url, Vars: vars}, resp)
+	if err != nil {
+		return fmt.Errorf("call set_up_trigger: %w", err)
+	}
+
+	return nil
+}
+
+type RPCSetUpResp struct{}
+
+type RPCSetUpReq struct {
+	URL  string
+	Vars Vars
 }
 
 // RPCDialer is a maker interface dialing to rpc server and returning new RPCClient
