@@ -64,9 +64,17 @@ jobs:
 This flow checks whether any issue in github is updated and sends an RPC call to Print method with the
 specified message.
 
-The configuration file uses the go template language for placeholders.
+The configuration file uses the [go template language](https://pkg.go.dev/text/template) for placeholders.
 
 `with` keyword specifies variables for each Action.
+
+Helper methods:
+
+| Method name                       | Description                                                  |
+|-----------------------------------|--------------------------------------------------------------|
+| env(varname string)               | returns the value of the environment variable                |
+| values(m map[string]string)       | returns a list of values of the map                          |
+| seq(l []string)                   | serializes the list in form of "string1,string2,string3,..." |
 
 ### Supported drivers
 
