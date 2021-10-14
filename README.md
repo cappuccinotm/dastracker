@@ -1,6 +1,6 @@
 # Dastracker [![Go](https://github.com/cappuccinotm/dastracker/actions/workflows/.go.yaml/badge.svg)](https://github.com/cappuccinotm/dastracker/actions/workflows/.go.yaml) [![codecov](https://codecov.io/gh/cappuccinotm/dastracker/branch/master/graph/badge.svg?token=nLxLt9Vdyo)](https://codecov.io/gh/cappuccinotm/dastracker)
 
-A tool for migrating tasks from one task tracker into another.
+Automating tasks management - simple and friendly, like Github Actions
 
 
 ### How to use
