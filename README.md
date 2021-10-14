@@ -31,8 +31,8 @@ Automating tasks management - simple and friendly, like Github Actions
           --webhook.addr=       local address to listen [$WEBHOOK_ADDR]
 
 ### DSL
-Dastracker uses its own language to determine which actions must happen whether some event appears, 
-such as, for instance, Github issue update. The next configuration example shows the syntax:
+Dastracker uses yaml configuration to determine which actions must happen whether some event appears, 
+such as, for instance, Github issue update. The syntax is similar to Github Actions syntax. The example is above:
 
 ```yaml
 trackers:
