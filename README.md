@@ -89,6 +89,10 @@ Helper methods:
 - [ ] Increase test coverage
 
 ### Plugin development
+The functionality of dastracker might be extended by using plugins. Each plugin is an independent process/container, implementing [Go RPC server](https://pkg.go.dev/net/rpc). Each exported method of the plugin handler must have a signature of `func(req lib.Request, res *lib.Response)`, these methods might be referred and called in the configuration.
+
+Also, the `lib.Plugin` structure has a field, named `SetUpTrigger` with signature of `func(req SetUpTriggerReq, resp *SetUpTriggerResp) error`. This field might be filled in order to allow to hang on some triggers in the configuration file. If no method is provided, dastracker will do nothin on any trigger, hanged on the plugin.
+
 See [example](_example/plugin/main.go) for details.
 
 Demo: 
