@@ -37,15 +37,17 @@ func (s *DataStore) taskUpdatedCb(job flow.Job) tracker.Subscriber {
 }
 
 func (s *DataStore) onTaskUpdated(ctx context.Context, job flow.Job, upd store.Update) error {
-	ticket, err := s.eng.Get(ctx, engine.GetRequest{Locator: upd.Locator})
-	if err != nil && !errors.Is(err, engine.ErrNotFound) {
-		return fmt.Errorf("get ticket by locator %s: %w", upd.Locator, err)
+	ticket, err := s.eng.Get(ctx, engine.GetRequest{Locator: upd.ReceivedFrom})
+	switch {
+	case errors.Is(err, engine.ErrNotFound):
+		ticket = store.Ticket{TrackerIDs: map[string]string{}}
+	case err != nil:
+		return fmt.Errorf("get ticket by locator %s: %w", upd.ReceivedFrom, err)
 	}
 
 	ticket.Patch(upd)
 
 	for _, act := range job.Actions {
-		// todo add functionality to run detached actions
 		trkName, mtd := act.Path()
 		trk := s.trackers[trkName]
 
@@ -54,18 +56,30 @@ func (s *DataStore) onTaskUpdated(ctx context.Context, job flow.Job, upd store.U
 			return fmt.Errorf("evaluate variables for %q action: %w", act.Name, err)
 		}
 
+		taskID, taskRegistered := ticket.TrackerIDs[trkName]
+
 		resp, err := trk.Call(ctx, tracker.Request{
-			Method: mtd, Vars: vars, TicketID: ticket.TrackerIDs[trkName],
+			Method: mtd, Vars: vars, TaskID: taskID,
 		})
 		if err != nil {
 			return fmt.Errorf("call to %s: %w", act.Name, err)
 		}
 
-		ticket.TrackerIDs[trkName] = resp.TaskID
+		if !taskRegistered {
+			ticket.TrackerIDs[trkName] = resp.TaskID
+		}
+	}
+
+	if ticket.ID == "" {
+		if ticket.ID, err = s.eng.Create(ctx, ticket); err != nil {
+			return fmt.Errorf("create ticket: %w", err)
+		}
+
+		return nil
 	}
 
 	if err = s.eng.Update(ctx, ticket); err != nil {
-		return fmt.Errorf("update ticket from %s: %w", upd.Locator, err)
+		return fmt.Errorf("update ticket from %s: %w", upd.ReceivedFrom, err)
 	}
 
 	return nil

@@ -88,6 +88,13 @@ Helper methods:
 - [ ] Asana support
 - [ ] Jira support
 - [ ] Increase test coverage
+- [ ] Update history
+- [ ] Special mappings
+- [ ] Detached actions
+
+### Terminology
+We use a word "ticket" for a task in the context of "dastracker" and the word "task" 
+in the context of the external task trackers.
 
 ### Plugin development
 See [example](_example/plugin/main.go) for details.

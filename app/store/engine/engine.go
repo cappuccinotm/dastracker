@@ -7,6 +7,8 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
+//go:generate moq -out engine_mock.go -fmt goimports . Interface
+
 // Interface describes methods each storage should implement.
 type Interface interface {
 	Create(ctx context.Context, ticket store.Ticket) (ticketID string, err error)

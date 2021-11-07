@@ -5,10 +5,12 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
+//go:generate moq -out tracker_mock.go -fmt goimports . Interface
+
 // Interface defines methods that each task tracker must implement.
 type Interface interface {
 	// Call makes a request to the tracker with specified method name,
-	// variables and dastracker's TicketID. Response should contain the
+	// variables and dastracker's TaskID. Response should contain the
 	// TaskID of the ticket in the tracker.
 	Call(ctx context.Context, req Request) (Response, error)
 
@@ -27,9 +29,9 @@ type Subscriber interface {
 
 // Request describes a requests to tracker's action.
 type Request struct {
-	Method   string
-	Vars     store.Vars
-	TicketID string // might be empty, in case if task is not registered yet
+	Method string
+	Vars   store.Vars
+	TaskID string // might be empty, in case if task is not registered yet
 }
 
 // Response describes possible return values of the Interface.Call

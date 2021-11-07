@@ -2,15 +2,19 @@ package store
 
 // Content contains the data in the ticket itself.
 type Content struct {
-	Body   string            `json:"body"`
-	Title  string            `json:"title"`
-	Fields map[string]string `json:"fields"` // map[name]value
+	Body   string       `json:"body"`
+	Title  string       `json:"title"`
+	Fields TicketFields `json:"fields"`
 }
+
+// TicketFields is an alias for a map of fields in form
+// of map[fieldName]fieldValue.
+type TicketFields map[string]string
 
 // Ticket describes a basic task/ticket in task tracker.
 type Ticket struct {
 	ID         string            `json:"id"`
-	TrackerIDs map[string]string // map[trackerName]taskID
+	TrackerIDs map[string]string `json:"tracker_ids"`
 
 	Content
 }
@@ -20,8 +24,8 @@ func (t *Ticket) Patch(upd Update) { t.Content = upd.Content }
 
 // Update describes a ticket update.
 type Update struct {
-	URL     string  `json:"url"`
-	Locator Locator `json:"locator"`
+	URL          string  `json:"url"`
+	ReceivedFrom Locator `json:"received_from"`
 
 	Content
 }

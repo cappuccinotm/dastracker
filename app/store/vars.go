@@ -9,25 +9,45 @@ import (
 	"text/template"
 )
 
+// VarsFromMap makes a new instance of Vars, not evaluated yet but filled
+// with the provided map.
+func VarsFromMap(m map[string]string) Vars { return Vars{vals: m} }
+
 // Vars is an alias for a map with variable values.
 type Vars struct {
 	vals      map[string]string
 	evaluated bool
 }
 
-// UnmarshalYAML implements unmarshaler in order to parse the map of
+// UnmarshalYAML implements unmarshaler in order to parse the map of values.
 func (v *Vars) UnmarshalYAML(value *yaml.Node) error {
 	return value.Decode(&v.vals)
 }
 
 // Has returns true if variable with specified key is present.
-func (v *Vars) Has(key string) bool { _, ok := v.vals[key]; return ok }
+func (v *Vars) Has(key string) bool {
+	if v.vals == nil {
+		v.vals = map[string]string{}
+	}
+	_, ok := v.vals[key]
+	return ok
+}
 
 // Get returns the value of the variable.
-func (v Vars) Get(name string) string { return v.vals[name] }
+func (v Vars) Get(name string) string {
+	if v.vals == nil {
+		v.vals = map[string]string{}
+	}
+	return v.vals[name]
+}
 
 // Set sets the value of the variable.
-func (v *Vars) Set(name, val string) { v.vals[name] = val }
+func (v *Vars) Set(name, val string) {
+	if v.vals == nil {
+		v.vals = map[string]string{}
+	}
+	v.vals[name] = val
+}
 
 // List returns a list of strings from var's
 // value parsed in form of "string1,string2,string3"
@@ -38,6 +58,10 @@ func (v Vars) Evaluated() bool { return v.evaluated }
 
 // Evaluate evaluates the final values of each variable.
 func (v Vars) Evaluate(upd Update) (Vars, error) {
+	if v.vals == nil {
+		return Vars{evaluated: true}, nil
+	}
+
 	res := Vars{vals: map[string]string{}, evaluated: true}
 	for key, vv := range v.vals {
 		tmpl, err := template.New("").Funcs(funcs).Parse(vv)
@@ -76,4 +100,12 @@ var funcs = map[string]interface{}{
 	"seq": func(s []string) string {
 		return strings.Join(s, ",")
 	},
+}
+
+// EvaluatedVarsFromMap does the same as VarsFromMap,
+// but also marks vars as evaluated. Used in tests.
+func EvaluatedVarsFromMap(m map[string]string) Vars {
+	v := VarsFromMap(m)
+	v.evaluated = true
+	return v
 }
