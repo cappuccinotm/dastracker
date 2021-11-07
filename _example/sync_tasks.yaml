@@ -23,6 +23,9 @@ jobs:
       with:
         events: "issue"
     do:
-      - action: customrpc/Print
-        with:
-          message: "Task \"{{.Update.Title}}\" has been updated and printed to the terminal."
+      - if: "Update.Title.Contains(\"[PTT]\")" # means "Print To Terminal"
+        do:
+          - action: customrpc/Print
+            detached: true
+            with:
+              message: "Task \"{{.Update.Title}}\" has been updated and printed to the terminal."

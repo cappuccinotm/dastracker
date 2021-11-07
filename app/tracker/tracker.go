@@ -2,49 +2,37 @@ package tracker
 
 import (
 	"context"
-	"net/http"
-
 	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/lib"
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 )
 
-// Interface defines methods for each tracker.
-// All computable values from Vars must be already evaluated, thus
-// the finite values are provided.
+// Interface defines methods that each task tracker must implement.
 type Interface interface {
-	Call(ctx context.Context, call lib.Request) (lib.Response, error)
-	SetUpTrigger(ctx context.Context, vars lib.Vars, cb Callback) error
+	// Call makes a request to the tracker with specified method name,
+	// variables and dastracker's TicketID. Response should contain the
+	// TaskID of the ticket in the tracker.
+	Call(ctx context.Context, req Request) (Response, error)
+
+	// Subscribe makes a trigger with specified parameters and calls
+	// the provided callback each time, the triggering event has fired.
+	Subscribe(ctx context.Context, vars store.Vars, sub Subscriber) error
+
+	// Close closes the connection to the tracker.
 	Close(ctx context.Context) error
 }
 
-// Callback invokes when some action that trigger describes has been appeared.
-type Callback interface {
-	Do(ctx context.Context, update store.Update) error
+// Subscriber describes a subscriber for a tracker's task update.
+type Subscriber interface {
+	TaskUpdated(ctx context.Context, upd store.Update) error
 }
 
-// CallbackFunc is an adapter to use ordinary functions as Callbacks.
-type CallbackFunc func(context.Context, store.Update) error
-
-// Do invokes the wrapped method with provided arguments.
-func (f CallbackFunc) Do(ctx context.Context, upd store.Update) error { return f(ctx, upd) }
-
-// WebhookProps describes parameters needed to tracker
-// in order to instantiate a webhook.
-type WebhookProps struct {
-	Mux     *mux.Router
-	BaseURL string
+// Request describes a requests to tracker's action.
+type Request struct {
+	Method   string
+	Vars     store.Vars
+	TicketID string // might be empty, in case if task is not registered yet
 }
 
-func (w *WebhookProps) newWebHook(fn func(w http.ResponseWriter, r *http.Request)) (url string) {
-	whID := uuid.NewString()
-	w.Mux.HandleFunc("/"+whID, fn)
-	return w.BaseURL + "/" + whID
-}
-
-// Props describes basic properties for tracker.
-type Props struct {
-	Name      string
-	Variables lib.Vars
+// Response describes possible return values of the Interface.Call
+type Response struct {
+	TaskID string // id of the created task in the tracker.
 }

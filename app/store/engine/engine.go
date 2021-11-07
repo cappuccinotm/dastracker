@@ -11,7 +11,14 @@ import (
 type Interface interface {
 	Create(ctx context.Context, ticket store.Ticket) (ticketID string, err error)
 	Update(ctx context.Context, ticket store.Ticket) error
-	Get(ctx context.Context, trackerName, trackerTaskID string) (store.Ticket, error)
+	Get(ctx context.Context, req GetRequest) (store.Ticket, error)
 }
 
+// GetRequest describes parameters to get a single ticket.
+type GetRequest struct {
+	Locator  store.Locator `json:"locator"`
+	TicketID string        `json:"ticket_id"`
+}
+
+// ErrNotFound shows that the requested entity was not found in the store.
 var ErrNotFound = errors.New("not found")

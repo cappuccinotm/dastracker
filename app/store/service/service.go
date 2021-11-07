@@ -1,136 +1,79 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"text/template"
-	"time"
-
+	"github.com/cappuccinotm/dastracker/app/flow"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/tracker"
-	"github.com/cappuccinotm/dastracker/lib"
 )
 
-// Service wraps engine.Interface with methods
-// common for each engine implementation.
-type Service struct {
+// DataStore wraps engine.Interface implementations with methods, common
+// for each engine implementation.
+type DataStore struct {
 	eng      engine.Interface
 	trackers map[string]tracker.Interface
-	jobs     map[string]Job
 }
 
-// NewService makes new instance of Service.
-func NewService(eng engine.Interface, trackers map[string]tracker.Interface, jobs map[string]Job) *Service {
-	return &Service{eng: eng, trackers: trackers, jobs: jobs}
-}
+// Run sets up the triggers, describes in the given jobs.
+func (s *DataStore) Run(ctx context.Context, jobs []flow.Job) error {
+	for _, job := range jobs {
+		trk := s.trackers[job.Trigger.Tracker]
 
-// Trigger describes parameters for trigger.
-type Trigger struct {
-	Tracker string
-	Job     string
-	Vars    lib.Vars
-}
-
-// InitTrigger initializes triggers in trackers.
-func (s *Service) InitTrigger(ctx context.Context, trigger Trigger) error {
-	err := s.trackers[trigger.Tracker].SetUpTrigger(ctx, trigger.Vars,
-		tracker.CallbackFunc(func(ctx context.Context, update store.Update) error {
-			if err := s.onTrigger(ctx, trigger.Tracker, trigger.Job, update); err != nil {
-				return fmt.Errorf("handle error: %w", err)
-			}
-
-			return nil
-		}))
-	if err != nil {
-		return fmt.Errorf("set up trigger: %w", err)
+		if err := trk.Subscribe(ctx, job.Trigger.With, s.taskUpdatedCb(job)); err != nil {
+			return fmt.Errorf("set up trigger in %q for the job %q: %w", job.Trigger.Tracker, job.Name, err)
+		}
 	}
-
 	return nil
 }
 
-// Job describes a single job.
-type Job struct {
-	Name    string
-	Actions []Action
+// taskUpdatedCb is a callback for tracker's triggers.
+func (s *DataStore) taskUpdatedCb(job flow.Job) tracker.Subscriber {
+	return subscriberFunc(func(ctx context.Context, update store.Update) error {
+		return s.onTaskUpdated(ctx, job, update)
+	})
 }
 
-type Action struct {
-	Tracker string
-	Method  string
-	Vars    map[string]*template.Template
-}
-
-type tmpl struct {
-	Old       store.Ticket
-	Update    store.Update
-	Timestamp time.Time
-}
-
-func (s *Service) onTrigger(ctx context.Context, trackerName, jobName string, update store.Update) error {
-	oldTicket, err := s.eng.Get(ctx, trackerName, update.TrackerTaskID)
-	switch {
-	case errors.Is(err, engine.ErrNotFound):
-		oldTicket = store.Ticket{Fields: map[string]string{}}
-	case err != nil:
-		return fmt.Errorf("get ticket %s/%s: %w", trackerName, update.TrackerTaskID, err)
+func (s *DataStore) onTaskUpdated(ctx context.Context, job flow.Job, upd store.Update) error {
+	ticket, err := s.eng.Get(ctx, engine.GetRequest{Locator: upd.Locator})
+	if err != nil && !errors.Is(err, engine.ErrNotFound) {
+		return fmt.Errorf("get ticket by locator %s: %w", upd.Locator, err)
 	}
 
-	vals := tmpl{Old: oldTicket, Update: update, Timestamp: time.Now()}
+	ticket.Patch(upd)
 
-	// todo case non exist
-	job := s.jobs[jobName]
+	for _, act := range job.Actions {
+		// todo add functionality to run detached actions
+		trkName, mtd := act.Path()
+		trk := s.trackers[trkName]
 
-	ticket := oldTicket
-
-	for _, action := range job.Actions {
-		varVals := map[string]string{}
-		for name, t := range action.Vars {
-			buf := &bytes.Buffer{}
-			if err := t.Execute(buf, vals); err != nil {
-				return fmt.Errorf("execute variable %s: %w", name, err)
-			}
-			varVals[name] = buf.String()
-		}
-
-		req := lib.Request{Method: action.Method, Vars: varVals}
-
-		if ticketID, ok := oldTicket.TrackerIDs[action.Tracker]; ok {
-			req.TicketID = ticketID
-		}
-
-		tr, ok := s.trackers[action.Tracker]
-		if !ok {
-			return fmt.Errorf("tracker %s is not registered", action.Tracker)
-		}
-
-		resp, err := tr.Call(ctx, req)
+		vars, err := act.With.Evaluate(upd)
 		if err != nil {
-			return fmt.Errorf("call %s/%s: %w", action.Tracker, action.Method, err)
+			return fmt.Errorf("evaluate variables for %q action: %w", act.Name, err)
 		}
 
-		if resp.ID != "" {
-			ticket.TrackerIDs[action.Tracker] = resp.ID
+		resp, err := trk.Call(ctx, tracker.Request{
+			Method: mtd, Vars: vars, TicketID: ticket.TrackerIDs[trkName],
+		})
+		if err != nil {
+			return fmt.Errorf("call to %s: %w", act.Name, err)
 		}
+
+		ticket.TrackerIDs[trkName] = resp.TaskID
 	}
 
-	ticket.Body = update.Body
-	ticket.Title = update.Title
-	ticket.Fields = update.Fields
-
-	if ticket.ID != "" {
-		if err := s.eng.Update(ctx, ticket); err != nil {
-			return fmt.Errorf("update ticket: %w", err)
-		}
-
-		return nil
-	}
-
-	if ticket.ID, err = s.eng.Create(ctx, ticket); err != nil {
-		return fmt.Errorf("create ticket: %w", err)
+	if err = s.eng.Update(ctx, ticket); err != nil {
+		return fmt.Errorf("update ticket from %s: %w", upd.Locator, err)
 	}
 
 	return nil
+}
+
+type subscriberFunc func(context.Context, store.Update) error
+
+// TaskUpdated calls the wrapped function.
+func (f subscriberFunc) TaskUpdated(ctx context.Context, upd store.Update) error {
+	return f(ctx, upd)
 }
