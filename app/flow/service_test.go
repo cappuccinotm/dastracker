@@ -1,8 +1,8 @@
-package service
+package flow
 
 import (
 	"context"
-	"github.com/cappuccinotm/dastracker/app/flow"
+	"github.com/cappuccinotm/dastracker/app/provider"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/tracker"
@@ -10,13 +10,28 @@ import (
 	"testing"
 )
 
-func TestDataStore_TaskUpdatedCallback(t *testing.T) {
+func TestDataStore_onTaskUpdated(t *testing.T) {
 	t.Run("task just initiated", func(t *testing.T) {
 		eng := &engine.InterfaceMock{}
 		trk := &tracker.InterfaceMock{}
+		prv := &provider.InterfaceMock{}
 		s := &DataStore{
-			eng:      eng,
-			trackers: map[string]tracker.Interface{"tracker-to-create": trk},
+			Engine:   eng,
+			Trackers: map[string]tracker.Interface{"tracker-to-create": trk},
+			Provider: prv,
+		}
+
+		prv.GetJobFunc = func(_ context.Context, name string) (store.Job, error) {
+			assert.Equal(t, "tracker-to-create/create", name)
+			return store.Job{
+				Actions: store.Sequence{{
+					Name: "tracker-to-create/create",
+					With: store.VarsFromMap(map[string]string{
+						"var1": "val1",
+						"var2": "val2",
+					}),
+				}},
+			}, nil
 		}
 
 		eng.GetFunc = func(_ context.Context, req engine.GetRequest) (store.Ticket, error) {
@@ -56,15 +71,7 @@ func TestDataStore_TaskUpdatedCallback(t *testing.T) {
 			return "new-ticket-id", nil
 		}
 
-		err := s.onTaskUpdated(context.Background(), flow.Job{
-			Actions: flow.Sequence{{
-				Name: "tracker-to-create/create",
-				With: store.VarsFromMap(map[string]string{
-					"var1": "val1",
-					"var2": "val2",
-				}),
-			}},
-		}, store.Update{
+		err := s.HandleUpdate(context.Background(), "tracker-to-create/create", store.Update{
 			URL: "ticket-updated-url",
 			ReceivedFrom: store.Locator{
 				Tracker: "received-from-tracker",
@@ -86,9 +93,24 @@ func TestDataStore_TaskUpdatedCallback(t *testing.T) {
 	t.Run("task updated", func(t *testing.T) {
 		eng := &engine.InterfaceMock{}
 		trk := &tracker.InterfaceMock{}
+		prv := &provider.InterfaceMock{}
 		s := &DataStore{
-			eng:      eng,
-			trackers: map[string]tracker.Interface{"update-tracker": trk},
+			Engine:   eng,
+			Trackers: map[string]tracker.Interface{"update-tracker": trk},
+			Provider: prv,
+		}
+
+		prv.GetJobFunc = func(_ context.Context, name string) (store.Job, error) {
+			assert.Equal(t, "update-tracker/update", name)
+			return store.Job{
+				Actions: store.Sequence{{
+					Name: "update-tracker/update",
+					With: store.VarsFromMap(map[string]string{
+						"var1": "val1",
+						"var2": "val2",
+					}),
+				}},
+			}, nil
 		}
 
 		eng.GetFunc = func(_ context.Context, req engine.GetRequest) (store.Ticket, error) {
@@ -138,15 +160,7 @@ func TestDataStore_TaskUpdatedCallback(t *testing.T) {
 			return nil
 		}
 
-		err := s.onTaskUpdated(context.Background(), flow.Job{
-			Actions: flow.Sequence{{
-				Name: "update-tracker/update",
-				With: store.VarsFromMap(map[string]string{
-					"var1": "val1",
-					"var2": "val2",
-				}),
-			}},
-		}, store.Update{
+		err := s.HandleUpdate(context.Background(), "update-tracker/update", store.Update{
 			URL: "ticket-updated-url",
 			ReceivedFrom: store.Locator{
 				Tracker: "received-from-tracker",

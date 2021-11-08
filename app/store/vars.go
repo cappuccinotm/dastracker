@@ -80,6 +80,25 @@ func (v Vars) Evaluate(upd Update) (Vars, error) {
 	return res, nil
 }
 
+// Equal returns true if two sets of variables represent the same one.
+// Note: two sets of variables with different Evaluated state are considered
+// to be equal, so the Evaluated state, in case if important, must be checked
+// separately.
+func (v Vars) Equal(oth Vars) bool {
+	if len(v.vals) != len(oth.vals) {
+		return false
+	}
+
+	for key, val := range v.vals {
+		othVal, present := oth.vals[key]
+		if !present || val != othVal {
+			return false
+		}
+	}
+
+	return true
+}
+
 // map of functions to parse from the config file
 var funcs = map[string]interface{}{
 	"env": os.Getenv,

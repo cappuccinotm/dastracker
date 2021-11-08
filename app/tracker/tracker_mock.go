@@ -26,7 +26,10 @@ var _ Interface = &InterfaceMock{}
 //             CloseFunc: func(ctx context.Context) error {
 // 	               panic("mock out the Close method")
 //             },
-//             SubscribeFunc: func(ctx context.Context, vars store.Vars, sub Subscriber) error {
+//             NameFunc: func() string {
+// 	               panic("mock out the Name method")
+//             },
+//             SubscribeFunc: func(ctx context.Context, vars store.Vars) (<-chan store.Update, error) {
 // 	               panic("mock out the Subscribe method")
 //             },
 //         }
@@ -42,8 +45,11 @@ type InterfaceMock struct {
 	// CloseFunc mocks the Close method.
 	CloseFunc func(ctx context.Context) error
 
+	// NameFunc mocks the Name method.
+	NameFunc func() string
+
 	// SubscribeFunc mocks the Subscribe method.
-	SubscribeFunc func(ctx context.Context, vars store.Vars, sub Subscriber) error
+	SubscribeFunc func(ctx context.Context, vars store.Vars) (<-chan store.Update, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -59,18 +65,20 @@ type InterfaceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 		}
+		// Name holds details about calls to the Name method.
+		Name []struct {
+		}
 		// Subscribe holds details about calls to the Subscribe method.
 		Subscribe []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vars is the vars argument value.
 			Vars store.Vars
-			// Sub is the sub argument value.
-			Sub Subscriber
 		}
 	}
 	lockCall      sync.RWMutex
 	lockClose     sync.RWMutex
+	lockName      sync.RWMutex
 	lockSubscribe sync.RWMutex
 }
 
@@ -140,24 +148,48 @@ func (mock *InterfaceMock) CloseCalls() []struct {
 	return calls
 }
 
+// Name calls NameFunc.
+func (mock *InterfaceMock) Name() string {
+	if mock.NameFunc == nil {
+		panic("InterfaceMock.NameFunc: method is nil but Interface.Name was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockName.Lock()
+	mock.calls.Name = append(mock.calls.Name, callInfo)
+	mock.lockName.Unlock()
+	return mock.NameFunc()
+}
+
+// NameCalls gets all the calls that were made to Name.
+// Check the length with:
+//     len(mockedInterface.NameCalls())
+func (mock *InterfaceMock) NameCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockName.RLock()
+	calls = mock.calls.Name
+	mock.lockName.RUnlock()
+	return calls
+}
+
 // Subscribe calls SubscribeFunc.
-func (mock *InterfaceMock) Subscribe(ctx context.Context, vars store.Vars, sub Subscriber) error {
+func (mock *InterfaceMock) Subscribe(ctx context.Context, vars store.Vars) (<-chan store.Update, error) {
 	if mock.SubscribeFunc == nil {
 		panic("InterfaceMock.SubscribeFunc: method is nil but Interface.Subscribe was just called")
 	}
 	callInfo := struct {
 		Ctx  context.Context
 		Vars store.Vars
-		Sub  Subscriber
 	}{
 		Ctx:  ctx,
 		Vars: vars,
-		Sub:  sub,
 	}
 	mock.lockSubscribe.Lock()
 	mock.calls.Subscribe = append(mock.calls.Subscribe, callInfo)
 	mock.lockSubscribe.Unlock()
-	return mock.SubscribeFunc(ctx, vars, sub)
+	return mock.SubscribeFunc(ctx, vars)
 }
 
 // SubscribeCalls gets all the calls that were made to Subscribe.
@@ -166,12 +198,10 @@ func (mock *InterfaceMock) Subscribe(ctx context.Context, vars store.Vars, sub S
 func (mock *InterfaceMock) SubscribeCalls() []struct {
 	Ctx  context.Context
 	Vars store.Vars
-	Sub  Subscriber
 } {
 	var calls []struct {
 		Ctx  context.Context
 		Vars store.Vars
-		Sub  Subscriber
 	}
 	mock.lockSubscribe.RLock()
 	calls = mock.calls.Subscribe
