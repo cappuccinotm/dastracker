@@ -29,7 +29,7 @@ type Interface interface {
 	Subscribe(ctx context.Context, req SubscribeReq) error
 
 	// Updates returns the channel, where the updates will appear.
-	// Note: the channel must be unique for each implementation of an Interface.
+	// Note: the channel must be unique per each implementation of an Interface.
 	Updates() <-chan store.Update
 
 	// Close closes the connection to the tracker.
@@ -45,7 +45,7 @@ type Request struct {
 
 // ParseMethod parses the Method field of the request, assuming that
 // the method is composed in form of "tracker/method". If the assumption does
-// not hold, it returns empty strigns instead.
+// not hold, it returns empty strings instead.
 func (r Request) ParseMethod() (tracker, method string) {
 	dividerIdx := strings.IndexRune(r.Method, '/')
 	if dividerIdx == -1 || dividerIdx == len(r.Method)-1 || dividerIdx == 0 {
@@ -62,8 +62,9 @@ type Response struct {
 
 // SubscribeReq describes parameters of the subscription for task updates.
 type SubscribeReq struct {
-	Tracker string
-	Vars    store.Vars
+	TriggerName string
+	Tracker     string
+	Vars        store.Vars
 }
 
 // MultiTracker wraps all Interface implementations with dispatch logic
@@ -108,13 +109,11 @@ func (m *MultiTracker) Name() string {
 
 // Call dispatches the call to the desired task tracker.
 func (m *MultiTracker) Call(ctx context.Context, req Request) (Response, error) {
-	trackerName, method := req.ParseMethod()
+	trackerName, _ := req.ParseMethod()
 	trk, present := m.trackers[trackerName]
 	if !present {
 		return Response{}, fmt.Errorf("tracker %q is not registered", trackerName)
 	}
-
-	req.Method = method
 
 	resp, err := trk.Call(ctx, req)
 	if err != nil {

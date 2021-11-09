@@ -5,13 +5,14 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sync"
 	"testing"
 )
 
 func TestMultiTracker(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	trk1 := &trackerMock{chn: make(chan store.Update), name: "trk1"}
-	trk2 := &trackerMock{chn: make(chan store.Update), name: "trk2"}
+	trk1 := &trackerMock{name: "trk1"}
+	trk2 := &trackerMock{name: "trk2"}
 
 	mtrk, err := NewMultiTracker(ctx, []Interface{trk1, trk2})
 	require.NoError(t, err)
@@ -48,6 +49,7 @@ func waitUntilForwarded(from, to chan store.Update, numOfQueued int) {
 type trackerMock struct {
 	InterfaceMock
 	chn  chan store.Update
+	once sync.Once
 	name string
 }
 
@@ -56,10 +58,12 @@ func (t *trackerMock) Name() string {
 }
 
 func (t *trackerMock) Updates() <-chan store.Update {
+	t.once.Do(func() { t.chn = make(chan store.Update) })
 	return t.chn
 }
 
 func (t *trackerMock) Publish(upd store.Update) {
+	t.once.Do(func() { t.chn = make(chan store.Update) })
 	t.chn <- upd
 }
 
@@ -69,4 +73,39 @@ func (t *trackerMock) Close(ctx context.Context) error {
 		t.InterfaceMock.CloseFunc = func(_ context.Context) error { return nil }
 	}
 	return t.InterfaceMock.Close(ctx)
+}
+
+func TestMultiTracker_Call(t *testing.T) {
+	trk1 := &trackerMock{name: "trk1", InterfaceMock: InterfaceMock{
+		CallFunc: func(_ context.Context, req Request) (Response, error) {
+			assert.Equal(t, "trk1/method1", req.Method)
+			return Response{}, nil
+		}},
+	}
+	trk2 := &trackerMock{name: "trk2", InterfaceMock: InterfaceMock{
+		CallFunc: func(_ context.Context, req Request) (Response, error) {
+			assert.Equal(t, "trk2/method2", req.Method)
+			return Response{}, nil
+		}},
+	}
+	mtrk, err := NewMultiTracker(context.Background(), []Interface{trk1, trk2})
+	require.NoError(t, err)
+
+	_, err = mtrk.Call(context.Background(), Request{Method: "trk1/method1"})
+	assert.NoError(t, err)
+
+	assert.Len(t, trk1.CallCalls(), 1)
+
+	_, err = mtrk.Call(context.Background(), Request{Method: "trk2/method2"})
+	assert.NoError(t, err)
+
+	assert.Len(t, trk2.CallCalls(), 1)
+
+	_, err = mtrk.Call(context.Background(), Request{Method: "trk1/method1"})
+	assert.NoError(t, err)
+
+	assert.Len(t, trk1.CallCalls(), 2)
+
+	err = mtrk.Close(context.Background())
+	assert.NoError(t, err)
 }
