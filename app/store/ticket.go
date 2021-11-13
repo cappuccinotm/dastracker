@@ -24,6 +24,7 @@ func (t *Ticket) Patch(upd Update) { t.Content = upd.Content }
 
 // Update describes a ticket update.
 type Update struct {
+	TriggerName  string  `json:"trigger_name"`
 	URL          string  `json:"url"`
 	ReceivedFrom Locator `json:"received_from"`
 

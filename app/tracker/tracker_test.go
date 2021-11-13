@@ -5,6 +5,7 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"log"
 	"sync"
 	"testing"
 )
@@ -14,8 +15,10 @@ func TestMultiTracker(t *testing.T) {
 	trk1 := &trackerMock{name: "trk1"}
 	trk2 := &trackerMock{name: "trk2"}
 
-	mtrk, err := NewMultiTracker(ctx, []Interface{trk1, trk2})
+	mtrk, err := NewMultiTracker(log.Default(), []Interface{trk1, trk2})
 	require.NoError(t, err)
+
+	go func() { mtrk.Run(ctx) }()
 
 	updates := mtrk.Updates()
 
@@ -88,7 +91,7 @@ func TestMultiTracker_Call(t *testing.T) {
 			return Response{}, nil
 		}},
 	}
-	mtrk, err := NewMultiTracker(context.Background(), []Interface{trk1, trk2})
+	mtrk, err := NewMultiTracker(log.Default(), []Interface{trk1, trk2})
 	require.NoError(t, err)
 
 	_, err = mtrk.Call(context.Background(), Request{Method: "trk1/method1"})

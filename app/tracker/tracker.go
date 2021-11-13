@@ -33,14 +33,15 @@ type Interface interface {
 	Updates() <-chan store.Update
 
 	// Close closes the connection to the tracker.
+	// Blocking call.
 	Close(ctx context.Context) error
 }
 
 // Request describes a requests to tracker's action.
 type Request struct {
 	Method string
+	Ticket store.Ticket
 	Vars   store.Vars
-	TaskID string // might be empty, in case if task is not registered yet
 }
 
 // ParseMethod parses the Method field of the request, assuming that
@@ -57,7 +58,8 @@ func (r Request) ParseMethod() (tracker, method string) {
 
 // Response describes possible return values of the Interface.Call
 type Response struct {
-	TaskID string // id of the created task in the tracker.
+	Tracker string // tracker, from which the response was received
+	TaskID  string // id of the created task in the tracker.
 }
 
 // SubscribeReq describes parameters of the subscription for task updates.
@@ -75,14 +77,16 @@ type MultiTracker struct {
 	trackers map[string]Interface
 	chn      chan store.Update
 	cancel   func()
+	log      *log.Logger
 }
 
 // NewMultiTracker makes new instance of MultiTracker. It also runs a listener
 // for updates.
-func NewMultiTracker(ctx context.Context, trackers []Interface) (*MultiTracker, error) {
+func NewMultiTracker(lg *log.Logger, trackers []Interface) (*MultiTracker, error) {
 	svc := &MultiTracker{
 		trackers: map[string]Interface{},
 		chn:      make(chan store.Update, maxConcurrentUpdates),
+		log:      lg,
 	}
 
 	for _, tracker := range trackers {
@@ -92,8 +96,6 @@ func NewMultiTracker(ctx context.Context, trackers []Interface) (*MultiTracker, 
 		}
 		svc.trackers[name] = tracker
 	}
-
-	svc.run(ctx)
 
 	return svc, nil
 }
@@ -148,8 +150,10 @@ func (m *MultiTracker) Close(ctx context.Context) error {
 	close(m.chn)
 
 	ewg := &errgroup.Group{}
-	for _, trk := range m.trackers {
+
+	for name, trk := range m.trackers {
 		trk := trk
+		m.log.Printf("[WARN] closing tracker %q", name)
 		ewg.Go(func() error {
 			if err := trk.Close(ctx); err != nil {
 				return fmt.Errorf("close %q: %w", trk.Name(), err)
@@ -165,23 +169,26 @@ func (m *MultiTracker) Close(ctx context.Context) error {
 	return nil
 }
 
-// run merges updates channel and creates a listener for updates.
-func (m *MultiTracker) run(ctx context.Context) {
+// Run merges updates channel and creates a listener for updates.
+func (m *MultiTracker) Run(ctx context.Context) {
 	ctx, m.cancel = context.WithCancel(ctx)
 
-	listener := func(name string, ch <-chan store.Update) {
+	listen := func(name string, ch <-chan store.Update) {
+		m.log.Printf("[INFO] running updates listener for %q", name)
 		for {
 			select {
+			case <-ctx.Done():
+				m.log.Printf("[WARN] closing updates listener for %q by reason: %v",
+					name, ctx.Err())
+				return
 			case upd := <-ch:
 				m.chn <- upd
-			case <-ctx.Done():
-				log.Printf("[WARN] closing updates listener for %q", name)
-				return
 			}
 		}
 	}
 
 	for name, trk := range m.trackers {
-		go listener(name, trk.Updates())
+		go listen(name, trk.Updates())
 	}
+
 }

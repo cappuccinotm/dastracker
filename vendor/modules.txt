@@ -3,6 +3,7 @@
 github.com/davecgh/go-spew/spew
 # github.com/go-pkgz/syncs v1.1.1
 ## explicit
+github.com/go-pkgz/syncs
 # github.com/hashicorp/logutils v1.0.0
 ## explicit
 github.com/hashicorp/logutils

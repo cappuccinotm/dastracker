@@ -58,7 +58,7 @@ func (v Vars) Evaluated() bool { return v.evaluated }
 
 // Evaluate evaluates the final values of each variable.
 func (v Vars) Evaluate(upd Update) (Vars, error) {
-	if v.vals == nil {
+	if len(v.vals) == 0 {
 		return Vars{evaluated: true}, nil
 	}
 
