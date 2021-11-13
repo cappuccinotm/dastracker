@@ -103,7 +103,12 @@ func (t *trackerMock) Publish(upd store.Update) {
 }
 
 func (t *trackerMock) Close(ctx context.Context) error {
+	if t.chn == nil {
+		return nil
+	}
+
 	close(t.chn)
+	t.chn = nil
 	if t.InterfaceMock.CloseFunc == nil {
 		t.InterfaceMock.CloseFunc = func(_ context.Context) error { return nil }
 	}

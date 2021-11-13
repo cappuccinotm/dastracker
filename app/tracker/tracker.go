@@ -145,6 +145,8 @@ func (m *MultiTracker) Updates() <-chan store.Update { return m.chn }
 // Close closes all wrapped trackers and the updates channel.
 func (m *MultiTracker) Close(ctx context.Context) error {
 	if m.cancel != nil {
+		// FIXME(semior): process case when closed was already called
+		// FIXME(semior): and run hasn't been called before close
 		m.cancel()
 	}
 	close(m.chn)
@@ -192,6 +194,5 @@ func (m *MultiTracker) Run(ctx context.Context) error {
 			}
 		})
 	}
-
 	return fmt.Errorf("run stopped, reason: %w", ewg.Wait())
 }
