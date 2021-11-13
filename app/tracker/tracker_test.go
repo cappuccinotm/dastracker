@@ -7,7 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"log"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestMultiTracker(t *testing.T) {
@@ -18,7 +20,13 @@ func TestMultiTracker(t *testing.T) {
 	mtrk, err := NewMultiTracker(log.Default(), []Interface{trk1, trk2})
 	require.NoError(t, err)
 
-	go func() { mtrk.Run(ctx) }()
+	closed := atomicFalse
+
+	go func() {
+		err := mtrk.Run(ctx)
+		assert.ErrorIs(t, err, context.Canceled)
+		atomic.StoreInt32(&closed, atomicTrue)
+	}()
 
 	updates := mtrk.Updates()
 
@@ -39,7 +47,31 @@ func TestMultiTracker(t *testing.T) {
 
 	assert.Len(t, trk1.CloseCalls(), 1)
 	assert.Len(t, trk2.CloseCalls(), 1)
+
+	waitTimeout(t, &closed, defaultTestTimeout, "close run")
 }
+
+func waitTimeout(t *testing.T, done *int32, timeout time.Duration, msgs ...interface{}) {
+	tm := time.NewTimer(timeout)
+	for {
+		select {
+		case <-tm.C:
+			assert.FailNow(t, "timed out", msgs...)
+		default:
+		}
+
+		if done := atomic.LoadInt32(done); done == atomicTrue {
+			tm.Stop()
+			return
+		}
+	}
+}
+
+const (
+	defaultTestTimeout = 5 * time.Second
+	atomicTrue         = int32(1)
+	atomicFalse        = int32(0)
+)
 
 func waitUntilForwarded(from, to chan store.Update, numOfQueued int) {
 	for {

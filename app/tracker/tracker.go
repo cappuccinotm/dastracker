@@ -170,25 +170,28 @@ func (m *MultiTracker) Close(ctx context.Context) error {
 }
 
 // Run merges updates channel and creates a listener for updates.
-func (m *MultiTracker) Run(ctx context.Context) {
-	ctx, m.cancel = context.WithCancel(ctx)
-
-	listen := func(name string, ch <-chan store.Update) {
-		m.log.Printf("[INFO] running updates listener for %q", name)
-		for {
-			select {
-			case <-ctx.Done():
-				m.log.Printf("[WARN] closing updates listener for %q by reason: %v",
-					name, ctx.Err())
-				return
-			case upd := <-ch:
-				m.chn <- upd
-			}
-		}
-	}
+// Always returns non-nil error.
+// Blocking call.
+func (m *MultiTracker) Run(ctx context.Context) error {
+	ewg, ctx := errgroup.WithContext(ctx)
 
 	for name, trk := range m.trackers {
-		go listen(name, trk.Updates())
+		name := name
+		ch := trk.Updates()
+		ewg.Go(func() error {
+			m.log.Printf("[INFO] running updates listener for %q", name)
+			for {
+				select {
+				case <-ctx.Done():
+					m.log.Printf("[WARN] closing updates listener for %q by reason: %v",
+						name, ctx.Err())
+					return ctx.Err()
+				case upd := <-ch:
+					m.chn <- upd
+				}
+			}
+		})
 	}
 
+	return fmt.Errorf("run stopped, reason: %w", ewg.Wait())
 }

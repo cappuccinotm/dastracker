@@ -30,7 +30,8 @@ type Actor struct {
 }
 
 // Run runs the updates' listener.
-// Not thread-safe.
+// Always returns non-nil error.
+// Blocking call.
 func (s *Actor) Run(ctx context.Context) error {
 	if s.UpdateTimeout == 0 {
 		s.UpdateTimeout = defaultUpdateTimeout
@@ -44,7 +45,7 @@ func (s *Actor) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("run stopped, reason: %w", ctx.Err())
 		case upd := <-updates:
 			s.handleUpdate(ctx, upd)
 		}
