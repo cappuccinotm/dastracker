@@ -154,7 +154,7 @@ func (mock *InterfaceMock) NameCalls() []struct {
 }
 
 // Listen calls RunFunc.
-func (mock *InterfaceMock) Run(ctx context.Context) error {
+func (mock *InterfaceMock) Listen(ctx context.Context) error {
 	if mock.RunFunc == nil {
 		panic("InterfaceMock.RunFunc: method is nil but Interface.Listen was just called")
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"log"
 	"testing"
+	"time"
 )
 
 func TestDispatcher_Call(t *testing.T) {
@@ -132,10 +133,73 @@ func TestDispatcher_Subscribe(t *testing.T) {
 }
 
 func TestDispatcher_Run(t *testing.T) {
+	t.Run("without lost", func(t *testing.T) {
+		trk1, trk2, svc := prepareDispatcher(t)
 
+		chn1 := make(chan store.Update)
+		chn2 := make(chan store.Update)
+
+		trk1.UpdatesFunc = func() <-chan store.Update { return chn1 }
+		trk2.UpdatesFunc = func() <-chan store.Update { return chn2 }
+
+		ctx, stop := context.WithCancel(context.Background())
+		closed := signaler()
+		go func() {
+			err := svc.Listen(ctx)
+			assert.ErrorIs(t, err, context.Canceled)
+			closed.done()
+		}()
+
+		chn1 <- store.Update{URL: "ticket-1"}
+		assert.Equal(t, store.Update{URL: "ticket-1"}, <-svc.Updates())
+		chn2 <- store.Update{URL: "ticket-2"}
+		assert.Equal(t, store.Update{URL: "ticket-2"}, <-svc.Updates())
+
+		stop()
+		waitTimeout(t, closed, time.Second)
+	})
+
+	t.Run("with lost", func(t *testing.T) {
+		trk1, trk2, svc := prepareDispatcher(t, LostTimeout(time.Millisecond))
+		// replacing with a channel with buffer 1
+		close(svc.chn)
+		svc.chn = make(chan store.Update, 1)
+
+		chn1 := make(chan store.Update)
+		chn2 := make(chan store.Update)
+
+		trk1.UpdatesFunc = func() <-chan store.Update { return chn1 }
+		trk2.UpdatesFunc = func() <-chan store.Update { return chn2 }
+
+		ctx, stop := context.WithCancel(context.Background())
+		closed := signaler()
+		go func() {
+			err := svc.Listen(ctx)
+			assert.ErrorIs(t, err, context.Canceled)
+			closed.done()
+		}()
+
+		svc.chn <- store.Update{URL: "buffer-is-busy"}
+		chn1 <- store.Update{URL: "ticket-1", TriggerName: "trk1"}
+		time.Sleep(5 * time.Millisecond)
+		assert.Equal(t, store.Update{URL: "buffer-is-busy"}, <-svc.Updates())
+
+		// we lost ticket-1, so the new call must succeed
+
+		chn2 <- store.Update{URL: "ticket-2"}
+		assert.Equal(t, store.Update{URL: "ticket-2"}, <-svc.Updates())
+
+		stop()
+		waitTimeout(t, closed, time.Second)
+	})
 }
 
-func prepareDispatcher(t *testing.T) (
+func TestDispatcher_Updates(t *testing.T) {
+	_, _, svc := prepareDispatcher(t)
+	assert.Equal(t, (<-chan store.Update)(svc.chn), svc.Updates())
+}
+
+func prepareDispatcher(t *testing.T, opts ...DispatcherOption) (
 	trk1 *tracker.InterfaceMock,
 	trk2 *tracker.InterfaceMock,
 	svc *Dispatcher,
@@ -143,7 +207,11 @@ func prepareDispatcher(t *testing.T) (
 	t.Helper()
 	trk1 = &tracker.InterfaceMock{NameFunc: func() string { return "trk1" }}
 	trk2 = &tracker.InterfaceMock{NameFunc: func() string { return "trk2" }}
-	svc, err := NewDispatcher(log.Default(), []tracker.Interface{trk1, trk2})
+	svc, err := NewDispatcher(log.Default(), []tracker.Interface{trk1, trk2}, opts...)
 	assert.NoError(t, err)
 	return trk1, trk2, svc
+}
+
+func TestErrTrackerNotRegistered_Error(t *testing.T) {
+	assert.Equal(t, `tracker "blah" is not registered`, ErrTrackerNotRegistered("blah").Error())
 }

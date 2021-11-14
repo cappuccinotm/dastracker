@@ -96,9 +96,9 @@ func (m *Dispatcher) Subscribe(ctx context.Context, req tracker.SubscribeReq) er
 // Updates returns the merged updates channel.
 func (m *Dispatcher) Updates() <-chan store.Update { return m.chn }
 
-// Run merges updates channel and creates a listener for updates.
+// Listen merges updates channel and creates a listener for updates.
 // Always returns non-nil error. Blocking call.
-func (m *Dispatcher) Run(ctx context.Context) error {
+func (m *Dispatcher) Listen(ctx context.Context) error {
 	ewg, ctx := errgroup.WithContext(ctx)
 
 	for name, trk := range m.trackers {

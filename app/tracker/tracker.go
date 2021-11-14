@@ -28,8 +28,8 @@ type Interface interface {
 	// Note: the channel must be unique per each implementation of an Interface.
 	Updates() <-chan store.Update
 
-	// Run runs the tracker's listener.
-	Run(ctx context.Context) error
+	// Listen runs the tracker's listener.
+	Listen(ctx context.Context) error
 }
 
 // Request describes a requests to tracker's action.

@@ -27,10 +27,10 @@ type Actor struct {
 	UpdateTimeout time.Duration
 }
 
-// Run runs the updates' listener.
+// Listen runs the updates' listener.
 // Always returns non-nil error.
 // Blocking call.
-func (s *Actor) Run(ctx context.Context) error {
+func (s *Actor) Listen(ctx context.Context) error {
 	if err := Listen(ctx, s.Tracker, HandlerFunc(s.handleUpdate)); err != nil {
 		return fmt.Errorf("updates listener stopped, reason: %w", err)
 	}
