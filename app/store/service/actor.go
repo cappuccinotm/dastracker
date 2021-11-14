@@ -16,7 +16,6 @@ import (
 // maxConcurrentUpdates defines the maximum number of goroutines, that may
 // process updates concurrently at the same time
 const maxConcurrentUpdates = 15
-const defaultUpdateTimeout = 1 * time.Minute
 
 // Actor receives updates from the Tracker and follows the calls the actions in the
 // wrapped tracker according to the job provided by the Flow.
@@ -26,48 +25,27 @@ type Actor struct {
 	Flow          flow.Interface
 	Log           *log.Logger
 	UpdateTimeout time.Duration
-	cancel        func()
 }
 
 // Run runs the updates' listener.
 // Always returns non-nil error.
 // Blocking call.
 func (s *Actor) Run(ctx context.Context) error {
-	if s.UpdateTimeout == 0 {
-		s.UpdateTimeout = defaultUpdateTimeout
+	if err := Listen(ctx, s.Tracker, HandlerFunc(s.handleUpdate)); err != nil {
+		return fmt.Errorf("updates listener stopped, reason: %w", err)
 	}
 
-	ctx, s.cancel = context.WithCancel(ctx)
-
-	s.Log.Printf("[INFO] started updates listener")
-
-	updates := s.Tracker.Updates()
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("run stopped, reason: %w", ctx.Err())
-		case upd := <-updates:
-			s.handleUpdate(ctx, upd)
-		}
-	}
-}
-
-// Close closes the actor's listener.
-func (s *Actor) Close(ctx context.Context) error {
-	s.cancel()
-	return s.Tracker.Close(ctx)
+	return nil
 }
 
 // handleUpdate runs the jobs concurrently over the given update
 // produces goroutines
 func (s *Actor) handleUpdate(ctx context.Context, upd store.Update) {
-	// do not run the update handler if the context is already done
-	if ctxDone(ctx) {
-		return
+	if s.UpdateTimeout != 0 {
+		var cancel func()
+		ctx, cancel = context.WithTimeout(ctx, s.UpdateTimeout)
+		defer cancel()
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, s.UpdateTimeout)
-	defer cancel()
 
 	jobs, err := s.Flow.GetSubscribedJobs(ctx, upd.TriggerName)
 	if err != nil {
@@ -130,13 +108,4 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 	}
 
 	return nil
-}
-
-func ctxDone(ctx context.Context) bool {
-	select {
-	case <-ctx.Done():
-		return true
-	default:
-		return false
-	}
 }

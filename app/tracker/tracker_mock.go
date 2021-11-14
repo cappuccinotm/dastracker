@@ -23,11 +23,11 @@ var _ Interface = &InterfaceMock{}
 //             CallFunc: func(ctx context.Context, req Request) (Response, error) {
 // 	               panic("mock out the Call method")
 //             },
-//             CloseFunc: func(ctx context.Context) error {
-// 	               panic("mock out the Close method")
-//             },
 //             NameFunc: func() string {
 // 	               panic("mock out the Name method")
+//             },
+//             RunFunc: func(ctx context.Context) error {
+// 	               panic("mock out the Listen method")
 //             },
 //             SubscribeFunc: func(ctx context.Context, req SubscribeReq) error {
 // 	               panic("mock out the Subscribe method")
@@ -45,11 +45,11 @@ type InterfaceMock struct {
 	// CallFunc mocks the Call method.
 	CallFunc func(ctx context.Context, req Request) (Response, error)
 
-	// CloseFunc mocks the Close method.
-	CloseFunc func(ctx context.Context) error
-
 	// NameFunc mocks the Name method.
 	NameFunc func() string
+
+	// RunFunc mocks the Listen method.
+	RunFunc func(ctx context.Context) error
 
 	// SubscribeFunc mocks the Subscribe method.
 	SubscribeFunc func(ctx context.Context, req SubscribeReq) error
@@ -66,13 +66,13 @@ type InterfaceMock struct {
 			// Req is the req argument value.
 			Req Request
 		}
-		// Close holds details about calls to the Close method.
-		Close []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-		}
 		// Name holds details about calls to the Name method.
 		Name []struct {
+		}
+		// Listen holds details about calls to the Listen method.
+		Run []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
 		}
 		// Subscribe holds details about calls to the Subscribe method.
 		Subscribe []struct {
@@ -86,8 +86,8 @@ type InterfaceMock struct {
 		}
 	}
 	lockCall      sync.RWMutex
-	lockClose     sync.RWMutex
 	lockName      sync.RWMutex
+	lockRun       sync.RWMutex
 	lockSubscribe sync.RWMutex
 	lockUpdates   sync.RWMutex
 }
@@ -127,37 +127,6 @@ func (mock *InterfaceMock) CallCalls() []struct {
 	return calls
 }
 
-// Close calls CloseFunc.
-func (mock *InterfaceMock) Close(ctx context.Context) error {
-	if mock.CloseFunc == nil {
-		panic("InterfaceMock.CloseFunc: method is nil but Interface.Close was just called")
-	}
-	callInfo := struct {
-		Ctx context.Context
-	}{
-		Ctx: ctx,
-	}
-	mock.lockClose.Lock()
-	mock.calls.Close = append(mock.calls.Close, callInfo)
-	mock.lockClose.Unlock()
-	return mock.CloseFunc(ctx)
-}
-
-// CloseCalls gets all the calls that were made to Close.
-// Check the length with:
-//     len(mockedInterface.CloseCalls())
-func (mock *InterfaceMock) CloseCalls() []struct {
-	Ctx context.Context
-} {
-	var calls []struct {
-		Ctx context.Context
-	}
-	mock.lockClose.RLock()
-	calls = mock.calls.Close
-	mock.lockClose.RUnlock()
-	return calls
-}
-
 // Name calls NameFunc.
 func (mock *InterfaceMock) Name() string {
 	if mock.NameFunc == nil {
@@ -181,6 +150,37 @@ func (mock *InterfaceMock) NameCalls() []struct {
 	mock.lockName.RLock()
 	calls = mock.calls.Name
 	mock.lockName.RUnlock()
+	return calls
+}
+
+// Listen calls RunFunc.
+func (mock *InterfaceMock) Run(ctx context.Context) error {
+	if mock.RunFunc == nil {
+		panic("InterfaceMock.RunFunc: method is nil but Interface.Listen was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+	}{
+		Ctx: ctx,
+	}
+	mock.lockRun.Lock()
+	mock.calls.Run = append(mock.calls.Run, callInfo)
+	mock.lockRun.Unlock()
+	return mock.RunFunc(ctx)
+}
+
+// RunCalls gets all the calls that were made to Listen.
+// Check the length with:
+//     len(mockedInterface.RunCalls())
+func (mock *InterfaceMock) RunCalls() []struct {
+	Ctx context.Context
+} {
+	var calls []struct {
+		Ctx context.Context
+	}
+	mock.lockRun.RLock()
+	calls = mock.calls.Run
+	mock.lockRun.RUnlock()
 	return calls
 }
 
