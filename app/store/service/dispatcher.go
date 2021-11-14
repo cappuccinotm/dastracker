@@ -99,6 +99,8 @@ func (m *Dispatcher) Updates() <-chan store.Update { return m.chn }
 // Listen merges updates channel and creates a listener for updates.
 // Always returns non-nil error. Blocking call.
 func (m *Dispatcher) Listen(ctx context.Context) error {
+	m.log.Printf("[INFO] running dispatcher %s", m.Name())
+
 	ewg, ctx := errgroup.WithContext(ctx)
 
 	for name, trk := range m.trackers {
@@ -114,11 +116,14 @@ func (m *Dispatcher) Listen(ctx context.Context) error {
 	}
 
 	if err := ewg.Wait(); err != nil {
+		m.shutdown()
 		return fmt.Errorf("run stopped, reason: %w", err)
 	}
 
 	return nil
 }
+
+func (m *Dispatcher) shutdown() { close(m.chn) }
 
 func (m *Dispatcher) forwardUpdate(ctx context.Context, upd store.Update) {
 	if m.lostTimeout != 0 {
@@ -130,6 +135,7 @@ func (m *Dispatcher) forwardUpdate(ctx context.Context, upd store.Update) {
 	select {
 	case <-ctx.Done():
 		m.log.Printf("[WARN] lost update from %q about %s", upd.TriggerName, upd.URL)
+	// todo(semior): what if already closed?
 	case m.chn <- upd:
 	}
 }

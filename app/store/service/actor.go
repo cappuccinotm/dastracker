@@ -39,7 +39,6 @@ func (s *Actor) Listen(ctx context.Context) error {
 }
 
 // handleUpdate runs the jobs concurrently over the given update
-// produces goroutines
 func (s *Actor) handleUpdate(ctx context.Context, upd store.Update) {
 	if s.UpdateTimeout != 0 {
 		var cancel func()
@@ -68,7 +67,6 @@ func (s *Actor) handleUpdate(ctx context.Context, upd store.Update) {
 }
 
 // runJob goes through the job's flow
-// thread-safe
 func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) error {
 	ticket, err := s.Engine.Get(ctx, engine.GetRequest{Locator: upd.ReceivedFrom})
 	switch {
