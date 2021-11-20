@@ -31,7 +31,7 @@ type Actor struct {
 // Always returns non-nil error.
 // Blocking call.
 func (s *Actor) Listen(ctx context.Context) error {
-	if err := Listen(ctx, s.Tracker, HandlerFunc(s.handleUpdate)); err != nil {
+	if err := s.Tracker.Listen(ctx, tracker.HandlerFunc(s.handleUpdate)); err != nil {
 		return fmt.Errorf("updates listener stopped, reason: %w", err)
 	}
 

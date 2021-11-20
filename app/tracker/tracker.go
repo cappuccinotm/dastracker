@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-//go:generate rm -f tracker_mock.go
-//go:generate moq -out tracker_mock.go -fmt goimports . Interface
+//go:generate rm -f interface_mock.go
+//go:generate moq -out interface_mock.go -fmt goimports . Interface
 
 // Interface defines methods that each task tracker must implement.
 type Interface interface {
@@ -24,12 +24,8 @@ type Interface interface {
 	// channel, to which updates will be published.
 	Subscribe(ctx context.Context, req SubscribeReq) error
 
-	// Updates returns the channel, where the updates will appear.
-	// Note: the channel must be unique per each implementation of an Interface.
-	Updates() <-chan store.Update
-
 	// Listen runs the tracker's listener.
-	Listen(ctx context.Context) error
+	Listen(ctx context.Context, h Handler) error
 }
 
 // Request describes a requests to tracker's action.

@@ -1,14 +1,11 @@
-package service
+package tracker
 
 import (
 	"context"
 	"fmt"
-	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/app/tracker"
 	"golang.org/x/sync/errgroup"
 	"log"
 	"strings"
-	"time"
 )
 
 // Dispatcher wraps all Interface implementations with dispatch logic
@@ -16,27 +13,15 @@ import (
 // It interprets Request.Method as a route in form of "tracker/method" and
 // dispatches all requests to the desired trackers.
 type Dispatcher struct {
-	trackers map[string]tracker.Interface
-	chn      chan store.Update
+	trackers map[string]Interface
 	log      *log.Logger
-
-	opts
-}
-
-type opts struct {
-	lostTimeout time.Duration
 }
 
 // NewDispatcher makes new instance of Dispatcher.
-func NewDispatcher(lg *log.Logger, trackers []tracker.Interface, opts ...DispatcherOption) (*Dispatcher, error) {
+func NewDispatcher(lg *log.Logger, trackers []Interface) (*Dispatcher, error) {
 	svc := &Dispatcher{
-		trackers: map[string]tracker.Interface{},
-		chn:      make(chan store.Update, maxConcurrentUpdates),
+		trackers: map[string]Interface{},
 		log:      lg,
-	}
-
-	for _, opt := range opts {
-		opt(&svc.opts)
 	}
 
 	for _, trk := range trackers {
@@ -60,27 +45,27 @@ func (m *Dispatcher) Name() string {
 }
 
 // Call dispatches the call to the desired task tracker.
-func (m *Dispatcher) Call(ctx context.Context, req tracker.Request) (tracker.Response, error) {
+func (m *Dispatcher) Call(ctx context.Context, req Request) (Response, error) {
 	trackerName, _, err := req.ParseMethod()
 	if err != nil {
-		return tracker.Response{}, fmt.Errorf("extract method: %w", err)
+		return Response{}, fmt.Errorf("extract method: %w", err)
 	}
 
 	trk, present := m.trackers[trackerName]
 	if !present {
-		return tracker.Response{}, ErrTrackerNotRegistered(trackerName)
+		return Response{}, ErrTrackerNotRegistered(trackerName)
 	}
 
 	resp, err := trk.Call(ctx, req)
 	if err != nil {
-		return tracker.Response{}, fmt.Errorf("tracker %q failed to call: %w", trackerName, err)
+		return Response{}, fmt.Errorf("tracker %q failed to call: %w", trackerName, err)
 	}
 
 	return resp, nil
 }
 
 // Subscribe dispatches the subscription call to the desired task tracker.
-func (m *Dispatcher) Subscribe(ctx context.Context, req tracker.SubscribeReq) error {
+func (m *Dispatcher) Subscribe(ctx context.Context, req SubscribeReq) error {
 	trk, present := m.trackers[req.Tracker]
 	if !present {
 		return ErrTrackerNotRegistered(req.Tracker)
@@ -93,12 +78,9 @@ func (m *Dispatcher) Subscribe(ctx context.Context, req tracker.SubscribeReq) er
 	return nil
 }
 
-// Updates returns the merged updates channel.
-func (m *Dispatcher) Updates() <-chan store.Update { return m.chn }
-
 // Listen merges updates channel and creates a listener for updates.
 // Always returns non-nil error. Blocking call.
-func (m *Dispatcher) Listen(ctx context.Context) error {
+func (m *Dispatcher) Listen(ctx context.Context, h Handler) error {
 	m.log.Printf("[INFO] running dispatcher %s", m.Name())
 
 	ewg, ctx := errgroup.WithContext(ctx)
@@ -107,7 +89,7 @@ func (m *Dispatcher) Listen(ctx context.Context) error {
 		trk := trk
 		name := name
 		ewg.Go(func() error {
-			if err := Listen(ctx, trk, HandlerFunc(m.forwardUpdate)); err != nil {
+			if err := trk.Listen(ctx, h); err != nil {
 				return fmt.Errorf("listener for tracker %q stopped, reason: %w", name, err)
 			}
 
@@ -116,37 +98,10 @@ func (m *Dispatcher) Listen(ctx context.Context) error {
 	}
 
 	if err := ewg.Wait(); err != nil {
-		m.shutdown()
 		return fmt.Errorf("run stopped, reason: %w", err)
 	}
 
 	return nil
-}
-
-func (m *Dispatcher) shutdown() { close(m.chn) }
-
-func (m *Dispatcher) forwardUpdate(ctx context.Context, upd store.Update) {
-	if m.lostTimeout != 0 {
-		var cancel func()
-		ctx, cancel = context.WithTimeout(ctx, m.lostTimeout)
-		defer cancel()
-	}
-
-	select {
-	case <-ctx.Done():
-		m.log.Printf("[WARN] lost update from %q about %s", upd.TriggerName, upd.URL)
-	// todo(semior): what if already closed?
-	case m.chn <- upd:
-	}
-}
-
-// DispatcherOption specifies options, that might be applied to the Dispatcher.
-type DispatcherOption func(*opts)
-
-// LostTimeout sets the timeout for updates, so, in case
-// if the queue is full, the update might be lost.
-func LostTimeout(timeout time.Duration) DispatcherOption {
-	return func(o *opts) { o.lostTimeout = timeout }
 }
 
 // ErrTrackerNotRegistered indicates about the call to the tracker, that was
