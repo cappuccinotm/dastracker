@@ -87,6 +87,13 @@ Helper methods:
 - [ ] Asana support
 - [ ] Jira support
 - [ ] Increase test coverage
+- [ ] Update history
+- [ ] Special mappings
+- [ ] Detached actions
+
+### Terminology
+We use a word "ticket" for a task in the context of "dastracker" and the word "task" 
+in the context of the external task trackers.
 
 ### Plugin development
 The functionality of dastracker might be extended by using plugins. Each plugin is an independent process/container, implementing [Go RPC server](https://pkg.go.dev/net/rpc). Each exported method of the plugin handler must have a signature of `func(req lib.Request, res *lib.Response)`, these methods might be referred and called in the configuration.

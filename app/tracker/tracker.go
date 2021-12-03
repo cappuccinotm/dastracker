@@ -2,49 +2,69 @@ package tracker
 
 import (
 	"context"
-	"net/http"
-
+	"fmt"
 	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/lib"
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
+	"strings"
 )
 
-// Interface defines methods for each tracker.
-// All computable values from Vars must be already evaluated, thus
-// the finite values are provided.
+//go:generate rm -f interface_mock.go
+//go:generate moq -out interface_mock.go -fmt goimports . Interface
+
+// Interface defines methods that each task tracker must implement.
 type Interface interface {
-	Call(ctx context.Context, call lib.Request) (lib.Response, error)
-	SetUpTrigger(ctx context.Context, vars lib.Vars, cb Callback) error
-	Close(ctx context.Context) error
+	// Name returns the name of the tracker to match in the configuration.
+	Name() string
+
+	// Call makes a request to the tracker with specified method name,
+	// variables and dastracker's TaskID. Response should contain the
+	// TaskID of the ticket in the tracker.
+	Call(ctx context.Context, req Request) (Response, error)
+
+	// Subscribe makes a trigger with specified parameters and returns the
+	// channel, to which updates will be published.
+	Subscribe(ctx context.Context, req SubscribeReq) error
+
+	// Listen runs the tracker's listener.
+	Listen(ctx context.Context, h Handler) error
 }
 
-// Callback invokes when some action that trigger describes has been appeared.
-type Callback interface {
-	Do(ctx context.Context, update store.Update) error
+// Request describes a requests to tracker's action.
+type Request struct {
+	Method string
+	Ticket store.Ticket
+	Vars   store.Vars
 }
 
-// CallbackFunc is an adapter to use ordinary functions as Callbacks.
-type CallbackFunc func(context.Context, store.Update) error
+// ParseMethod parses the Method field of the request, assuming that
+// the method is composed in form of "tracker/method". If the assumption does
+// not hold, it returns empty strings instead.
+func (r Request) ParseMethod() (tracker, method string, err error) {
+	dividerIdx := strings.IndexRune(r.Method, '/')
+	if dividerIdx == -1 || dividerIdx == len(r.Method)-1 || dividerIdx == 0 {
+		return "", "", ErrMethodParseFailed(r.Method)
+	}
 
-// Do invokes the wrapped method with provided arguments.
-func (f CallbackFunc) Do(ctx context.Context, upd store.Update) error { return f(ctx, upd) }
-
-// WebhookProps describes parameters needed to tracker
-// in order to instantiate a webhook.
-type WebhookProps struct {
-	Mux     *mux.Router
-	BaseURL string
+	return r.Method[:dividerIdx], r.Method[dividerIdx+1:], nil
 }
 
-func (w *WebhookProps) newWebHook(fn func(w http.ResponseWriter, r *http.Request)) (url string) {
-	whID := uuid.NewString()
-	w.Mux.HandleFunc("/"+whID, fn)
-	return w.BaseURL + "/" + whID
+// Response describes possible return values of the Interface.Call
+type Response struct {
+	Tracker string // tracker, from which the response was received
+	TaskID  string // id of the created task in the tracker.
 }
 
-// Props describes basic properties for tracker.
-type Props struct {
-	Name      string
-	Variables lib.Vars
+// SubscribeReq describes parameters of the subscription for task updates.
+type SubscribeReq struct {
+	TriggerName string
+	Tracker     string
+	Vars        store.Vars
+}
+
+// ErrMethodParseFailed indicates that the Request contains
+// an invalid path to the method.
+type ErrMethodParseFailed string
+
+// Error returns the string representation of the error.
+func (e ErrMethodParseFailed) Error() string {
+	return fmt.Sprintf("method path is invalid: %s", string(e))
 }

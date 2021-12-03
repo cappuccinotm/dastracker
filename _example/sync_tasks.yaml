@@ -16,13 +16,21 @@ trackers:
     with:
       address: "{{ env \"CUSTOM_RPC_ADDRESS\" }}"
 
+# fixme what if there are the same triggers for jobs?
+
+triggers:
+  - name: gh_task_updated
+    in: gh_dastracker
+    with:
+      events: "issue"
+
 jobs:
   - name: print task update if task is received
-    on:
-      tracker: gh_dastracker
-      with:
-        events: "issue"
+    on: gh_task_updated
     do:
-      - action: customrpc/Print
-        with:
-          message: "Task \"{{.Update.Title}}\" has been updated and printed to the terminal."
+      - if: "Update.Title.Contains(\"[PTT]\")" # means "Print To Terminal"
+        do:
+          - action: customrpc/Print
+            detached: true
+            with:
+              message: "Task \"{{.Update.Title}}\" has been updated and printed to the terminal."
