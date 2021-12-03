@@ -56,6 +56,8 @@ func (v Vars) List(s string) []string { return strings.Split(v.Get(s), ",") }
 // Evaluated returns true if vars contains the set of already evaluated values.
 func (v Vars) Evaluated() bool { return v.evaluated }
 
+type evTmpl struct{ Update Update }
+
 // Evaluate evaluates the final values of each variable.
 func (v Vars) Evaluate(upd Update) (Vars, error) {
 	if len(v.vals) == 0 {
@@ -70,7 +72,7 @@ func (v Vars) Evaluate(upd Update) (Vars, error) {
 		}
 
 		buf := &bytes.Buffer{}
-		if err = tmpl.Execute(buf, upd); err != nil {
+		if err = tmpl.Execute(buf, evTmpl{Update: upd}); err != nil {
 			return Vars{}, fmt.Errorf("evaluate the value of the %q variable: %w", key, err)
 		}
 
@@ -119,12 +121,4 @@ var funcs = map[string]interface{}{
 	"seq": func(s []string) string {
 		return strings.Join(s, ",")
 	},
-}
-
-// EvaluatedVarsFromMap does the same as VarsFromMap,
-// but also marks vars as evaluated. Used in tests.
-func EvaluatedVarsFromMap(m map[string]string) Vars {
-	v := VarsFromMap(m)
-	v.evaluated = true
-	return v
 }

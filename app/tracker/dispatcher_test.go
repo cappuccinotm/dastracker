@@ -3,7 +3,9 @@ package tracker
 import (
 	"context"
 	"github.com/cappuccinotm/dastracker/app/store"
+	"github.com/cappuccinotm/dastracker/internal/sign"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"log"
 	"reflect"
 	"runtime"
@@ -152,40 +154,25 @@ func TestDispatcher_Listen(t *testing.T) {
 		}
 		trk2.ListenFunc = trk1.ListenFunc
 
-		run := signaler()
-		closed := signaler()
+		run := sign.Signal()
+		closed := sign.Signal()
 
 		var closeErr error
 
 		go func() {
-			run.done()
+			run.Done()
 			closeErr = svc.Listen(baseCtx, handler)
-			closed.done()
+			closed.Done()
 		}()
 
-		waitTimeout(t, run, time.Second, "run")
+		require.NoError(t, run.WaitTimeout(time.Second), "run")
 		stop()
-		waitTimeout(t, closed, time.Second, "stop")
+		assert.NoError(t, closed.WaitTimeout(time.Second), "stop")
 
 		assert.Len(t, trk1.ListenCalls(), 1)
 		assert.Len(t, trk2.ListenCalls(), 1)
 		assert.ErrorIs(t, closeErr, context.Canceled)
 	})
-}
-
-func waitTimeout(t *testing.T, done <-chan struct{}, timeout time.Duration, msgs ...interface{}) {
-	t.Helper()
-
-	tm := time.NewTimer(timeout)
-	for {
-		select {
-		case <-tm.C:
-			assert.FailNow(t, "timed out", msgs...)
-		case <-done:
-			tm.Stop()
-			return
-		}
-	}
 }
 
 type trkMock struct {
@@ -208,16 +195,3 @@ func prepareDispatcher(t *testing.T) (
 func TestErrTrackerNotRegistered_Error(t *testing.T) {
 	assert.Equal(t, `tracker "blah" is not registered`, ErrTrackerNotRegistered("blah").Error())
 }
-
-type sign chan struct{}
-
-func (d sign) done() {
-	select {
-	case <-d:
-		return
-	default:
-		close(d)
-	}
-}
-
-func signaler() sign { return make(chan struct{}) }
