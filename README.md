@@ -75,14 +75,9 @@ Helper methods:
 | values(m map[string]string)       | returns a list of values of the map                          |
 | seq(l []string)                   | serializes the list in form of "string1,string2,string3,..." |
 
-### Supported drivers
-
-| Driver      | Support status                                                       |
-|-------------|----------------------------------------------------------------------|
-| Github      | Partially supported with issues (webhooks are not fully implemented) |
-| RPC Plugins | Fully supported                                                      |
-
 ### TODO
+- [ ] RPC plugins support
+- [ ] Github support
 - [ ] Predicates for triggers
 - [ ] Asana support
 - [ ] Jira support
@@ -100,7 +95,7 @@ The functionality of dastracker might be extended by using plugins. Each plugin 
 
 Also, the `lib.Plugin` structure has a field, named `SetUpTrigger` with signature of `func(req SetUpTriggerReq, resp *SetUpTriggerResp) error`. This field might be filled in order to allow to hang on some triggers in the configuration file. If no method is provided, dastracker will do nothin on any trigger, hanged on the plugin.
 
-See [example](_example/plugin/main.go) for details.
+See [example](_example/plugin/main.go) for details. **(TODO)**
 
 Demo: 
 ![](docs/demo.gif)
