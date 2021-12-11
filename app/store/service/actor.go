@@ -21,7 +21,7 @@ const maxConcurrentUpdates = 15
 // wrapped tracker according to the job provided by the Flow.
 type Actor struct {
 	Tracker       tracker.Interface
-	Engine        engine.Interface
+	Engine        engine.Tickets
 	Flow          flow.Interface
 	Log           *log.Logger
 	UpdateTimeout time.Duration

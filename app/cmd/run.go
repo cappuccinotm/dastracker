@@ -22,5 +22,6 @@ type Run struct {
 
 // Execute runs the command
 func (r Run) Execute(_ []string) error {
+	// todo
 	panic("implement me")
 }

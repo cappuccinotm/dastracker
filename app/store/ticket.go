@@ -31,7 +31,7 @@ type Update struct {
 	Content
 }
 
-// Locator describes the path to the ticket in the specific tracker.
+// Locator describes the path to the entity in the specific tracker.
 type Locator struct {
 	Tracker string `json:"tracker"`
 	TaskID  string `json:"task_id"`

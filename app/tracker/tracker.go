@@ -25,6 +25,8 @@ type Interface interface {
 	Subscribe(ctx context.Context, req SubscribeReq) error
 
 	// Listen runs the tracker's listener.
+	// When the app is shutting down (ctx is canceled),
+	// all trackers must unset all webhooks.
 	Listen(ctx context.Context, h Handler) error
 }
 
