@@ -86,12 +86,14 @@ func (m *Manager) whLoaderMiddleware(next http.Handler) http.Handler {
 		var v map[string]string
 
 		if v = mux.Vars(r); v == nil || v["whID"] == "" {
+			m.l.Printf("[WARN] didn't find webhook ID among the request variables in URL %q",
+				r.URL)
 			return
 		}
 
 		wh, err := m.store.Get(ctx, v["whID"])
 		if err != nil {
-			m.l.Printf("[WARN] failed to get webhook with ID %s, requested at URL %s: %v",
+			m.l.Printf("[WARN] failed to get webhook with ID %s, requested at URL %q: %v",
 				v["whID"], r.URL, err)
 			return
 		}
