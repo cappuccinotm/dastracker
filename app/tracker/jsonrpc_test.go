@@ -41,7 +41,7 @@ func TestJSONRPC_Call(t *testing.T) {
 			assert.Equal(t, "jrpc.some-method", serviceMethod)
 			*resp = Response{Tracker: "remote-tracker", TaskID: "task-id"}
 			assert.Equal(t, Request{
-				Method: "some-method",
+				MethodURI: "some-tracker/some-method",
 				Ticket: store.Ticket{
 					ID:         "ticket-id",
 					TrackerIDs: map[string]string{"tracker": "tracker-id"},
@@ -54,7 +54,7 @@ func TestJSONRPC_Call(t *testing.T) {
 	}}
 
 	resp, err := svc.Call(context.Background(), Request{
-		Method: "some-method",
+		MethodURI: "some-tracker/some-method",
 		Ticket: store.Ticket{
 			ID:         "ticket-id",
 			TrackerIDs: map[string]string{"tracker": "tracker-id"},

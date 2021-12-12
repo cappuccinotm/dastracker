@@ -20,12 +20,12 @@ func TestDispatcher_Call(t *testing.T) {
 		trk1.CallFunc = func(ctx context.Context, req Request) (Response, error) {
 			assert.Equal(t, context.TODO(), ctx)
 			assert.Equal(t, Request{
-				Method: "trk1/method", Ticket: store.Ticket{ID: "ticket-id"},
+				MethodURI: "trk1/method", Ticket: store.Ticket{ID: "ticket-id"},
 			}, req)
 			return Response{Tracker: "trk1", TaskID: "task-id"}, nil
 		}
 		resp, err := svc.Call(context.TODO(), Request{
-			Method: "trk1/method", Ticket: store.Ticket{ID: "ticket-id"},
+			MethodURI: "trk1/method", Ticket: store.Ticket{ID: "ticket-id"},
 		})
 		assert.NoError(t, err)
 		assert.Equal(t, Response{Tracker: "trk1", TaskID: "task-id"}, resp)
@@ -33,13 +33,13 @@ func TestDispatcher_Call(t *testing.T) {
 		trk2.CallFunc = func(ctx context.Context, req Request) (Response, error) {
 			assert.Equal(t, context.TODO(), ctx)
 			assert.Equal(t, Request{
-				Method: "trk2/method", Ticket: store.Ticket{ID: "ticket-id"},
+				MethodURI: "trk2/method", Ticket: store.Ticket{ID: "ticket-id"},
 			}, req)
 			return Response{Tracker: "trk2", TaskID: "task-id-2"}, nil
 		}
 
 		resp, err = svc.Call(context.TODO(), Request{
-			Method: "trk2/method", Ticket: store.Ticket{ID: "ticket-id"},
+			MethodURI: "trk2/method", Ticket: store.Ticket{ID: "ticket-id"},
 		})
 		assert.NoError(t, err)
 		assert.Equal(t, Response{Tracker: "trk2", TaskID: "task-id-2"}, resp)
@@ -47,7 +47,7 @@ func TestDispatcher_Call(t *testing.T) {
 
 	t.Run("tracker not registered", func(t *testing.T) {
 		resp, err := svc.Call(context.TODO(), Request{
-			Method: "trk3/method", Ticket: store.Ticket{ID: "ticket-id"},
+			MethodURI: "trk3/method", Ticket: store.Ticket{ID: "ticket-id"},
 		})
 		assert.Empty(t, resp)
 		var errTrackerNotRegistered ErrTrackerNotRegistered
@@ -57,7 +57,7 @@ func TestDispatcher_Call(t *testing.T) {
 
 	t.Run("invalid tracker method", func(t *testing.T) {
 		resp, err := svc.Call(context.TODO(), Request{
-			Method: "method", Ticket: store.Ticket{ID: "ticket-id"},
+			MethodURI: "method", Ticket: store.Ticket{ID: "ticket-id"},
 		})
 		assert.Empty(t, resp)
 		var errMethodParse ErrMethodParseFailed
@@ -67,7 +67,7 @@ func TestDispatcher_Call(t *testing.T) {
 
 	t.Run("empty method name", func(t *testing.T) {
 		resp, err := svc.Call(context.TODO(), Request{
-			Method: "", Ticket: store.Ticket{ID: "ticket-id"},
+			MethodURI: "", Ticket: store.Ticket{ID: "ticket-id"},
 		})
 		assert.Empty(t, resp)
 		var errMethodParse ErrMethodParseFailed

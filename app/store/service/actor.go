@@ -85,7 +85,7 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 			return fmt.Errorf("evaluate variables for %q action: %w", act.Name, err)
 		}
 
-		resp, err := s.Tracker.Call(ctx, tracker.Request{Method: act.Name, Vars: vars, Ticket: ticket})
+		resp, err := s.Tracker.Call(ctx, tracker.Request{MethodURI: act.Name, Vars: vars, Ticket: ticket})
 		if err != nil {
 			return fmt.Errorf("call to %s: %w", act.Name, err)
 		}

@@ -39,9 +39,14 @@ func (rpc *JSONRPC) Name() string { return rpc.name }
 
 // Call makes a call to the remote JSONRPC server with given Request.
 func (rpc *JSONRPC) Call(ctx context.Context, req Request) (Response, error) {
+	_, method, err := req.ParseMethodURI()
+	if err != nil {
+		return Response{}, fmt.Errorf("parse method: %w", err)
+	}
+
 	var resp Response
-	if err := rpc.cl.Call(ctx, fmt.Sprintf("%s.%s", rpc.name, req.Method), req, &resp); err != nil {
-		return Response{}, fmt.Errorf("call remote method %s: %w", req.Method, err)
+	if err := rpc.cl.Call(ctx, fmt.Sprintf("%s.%s", rpc.name, method), req, &resp); err != nil {
+		return Response{}, fmt.Errorf("call remote method %s: %w", req.MethodURI, err)
 	}
 	return resp, nil
 }

@@ -10,7 +10,7 @@ import (
 
 // Dispatcher wraps all Interface implementations with dispatch logic
 // inside it.
-// It interprets Request.Method as a route in form of "tracker/method" and
+// It interprets Request.MethodURI as a route in form of "tracker/method" and
 // dispatches all requests to the desired trackers.
 type Dispatcher struct {
 	trackers map[string]Interface
@@ -46,7 +46,7 @@ func (m *Dispatcher) Name() string {
 
 // Call dispatches the call to the desired task tracker.
 func (m *Dispatcher) Call(ctx context.Context, req Request) (Response, error) {
-	trackerName, _, err := req.ParseMethod()
+	trackerName, _, err := req.ParseMethodURI()
 	if err != nil {
 		return Response{}, fmt.Errorf("extract method: %w", err)
 	}

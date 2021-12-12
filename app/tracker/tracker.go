@@ -32,21 +32,21 @@ type Interface interface {
 
 // Request describes a requests to tracker's action.
 type Request struct {
-	Method string
-	Ticket store.Ticket
-	Vars   store.Vars
+	MethodURI string
+	Ticket    store.Ticket
+	Vars      store.Vars
 }
 
-// ParseMethod parses the Method field of the request, assuming that
+// ParseMethodURI parses the MethodURI field of the request, assuming that
 // the method is composed in form of "tracker/method". If the assumption does
 // not hold, it returns empty strings instead.
-func (r Request) ParseMethod() (tracker, method string, err error) {
-	dividerIdx := strings.IndexRune(r.Method, '/')
-	if dividerIdx == -1 || dividerIdx == len(r.Method)-1 || dividerIdx == 0 {
-		return "", "", ErrMethodParseFailed(r.Method)
+func (r Request) ParseMethodURI() (tracker, method string, err error) {
+	dividerIdx := strings.IndexRune(r.MethodURI, '/')
+	if dividerIdx == -1 || dividerIdx == len(r.MethodURI)-1 || dividerIdx == 0 {
+		return "", "", ErrMethodParseFailed(r.MethodURI)
 	}
 
-	return r.Method[:dividerIdx], r.Method[dividerIdx+1:], nil
+	return r.MethodURI[:dividerIdx], r.MethodURI[dividerIdx+1:], nil
 }
 
 // Response describes possible return values of the Interface.Call
