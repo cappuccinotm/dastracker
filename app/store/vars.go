@@ -36,12 +36,7 @@ func (v *Vars) Has(key string) bool {
 }
 
 // Get returns the value of the variable.
-func (v Vars) Get(name string) string {
-	if v == nil {
-		v = map[string]string{}
-	}
-	return v[name]
-}
+func (v Vars) Get(name string) string { return v[name] }
 
 // Set sets the value of the variable.
 func (v *Vars) Set(name, val string) {
