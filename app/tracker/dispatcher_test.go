@@ -3,7 +3,7 @@ package tracker
 import (
 	"context"
 	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/internal/sign"
+	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"log"

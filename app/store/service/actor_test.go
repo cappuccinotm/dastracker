@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"github.com/cappuccinotm/dastracker/app/tracker"
-	"github.com/cappuccinotm/dastracker/internal/sign"
+	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"runtime"

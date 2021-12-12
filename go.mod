@@ -3,7 +3,10 @@ module github.com/cappuccinotm/dastracker
 go 1.17
 
 require (
+	github.com/go-pkgz/repeater v1.1.3
 	github.com/go-pkgz/syncs v1.1.1
+	github.com/google/uuid v1.3.0
+	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/logutils v1.0.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/stretchr/testify v1.7.0

@@ -7,13 +7,25 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
-//go:generate moq -out engine_mock.go -fmt goimports . Interface
+//go:generate moq -out tickets_mock.go -fmt goimports . Tickets
+//go:generate moq -out webhooks_mock.go -fmt goimports . Webhooks
 
-// Interface describes methods each storage should implement.
-type Interface interface {
+// Tickets describes methods each storage should implement.
+type Tickets interface {
 	Create(ctx context.Context, ticket store.Ticket) (ticketID string, err error)
 	Update(ctx context.Context, ticket store.Ticket) error
 	Get(ctx context.Context, req GetRequest) (store.Ticket, error)
+}
+
+// Webhooks defines methods to store and load information about webhooks.
+type Webhooks interface {
+	Create(ctx context.Context, wh store.Webhook) (whID string, err error)
+	Get(ctx context.Context, s string) (store.Webhook, error)
+	Delete(ctx context.Context, whID string) error
+	Update(ctx context.Context, wh store.Webhook) error
+
+	// List returns all webhooks if trackerID = ""
+	List(ctx context.Context, trackerID string) ([]store.Webhook, error)
 }
 
 // GetRequest describes parameters to get a single ticket.

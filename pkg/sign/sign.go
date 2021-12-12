@@ -23,6 +23,16 @@ func (d Sign) Done() {
 	}
 }
 
+// Signaled immediately checks if the signal was already given.
+func (d Sign) Signaled() bool {
+	select {
+	case <-d:
+		return true
+	default:
+		return false
+	}
+}
+
 // WaitTimeout waits until the signal is fired or timed out.
 func (d Sign) WaitTimeout(timeout time.Duration) error {
 	tm := time.NewTimer(timeout)

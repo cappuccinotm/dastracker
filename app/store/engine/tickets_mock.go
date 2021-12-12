@@ -10,16 +10,16 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
-// Ensure, that InterfaceMock does implement Interface.
+// Ensure, that TicketsMock does implement Tickets.
 // If this is not the case, regenerate this file with moq.
-var _ Interface = &InterfaceMock{}
+var _ Tickets = &TicketsMock{}
 
-// InterfaceMock is a mock implementation of Interface.
+// TicketsMock is a mock implementation of Tickets.
 //
-//     func TestSomethingThatUsesInterface(t *testing.T) {
+//     func TestSomethingThatUsesTickets(t *testing.T) {
 //
-//         // make and configure a mocked Interface
-//         mockedInterface := &InterfaceMock{
+//         // make and configure a mocked Tickets
+//         mockedTickets := &TicketsMock{
 //             CreateFunc: func(ctx context.Context, ticket store.Ticket) (string, error) {
 // 	               panic("mock out the Create method")
 //             },
@@ -31,11 +31,11 @@ var _ Interface = &InterfaceMock{}
 //             },
 //         }
 //
-//         // use mockedInterface in code that requires Interface
+//         // use mockedTickets in code that requires Tickets
 //         // and then make assertions.
 //
 //     }
-type InterfaceMock struct {
+type TicketsMock struct {
 	// CreateFunc mocks the Create method.
 	CreateFunc func(ctx context.Context, ticket store.Ticket) (string, error)
 
@@ -75,9 +75,9 @@ type InterfaceMock struct {
 }
 
 // Create calls CreateFunc.
-func (mock *InterfaceMock) Create(ctx context.Context, ticket store.Ticket) (string, error) {
+func (mock *TicketsMock) Create(ctx context.Context, ticket store.Ticket) (string, error) {
 	if mock.CreateFunc == nil {
-		panic("InterfaceMock.CreateFunc: method is nil but Interface.Create was just called")
+		panic("TicketsMock.CreateFunc: method is nil but Tickets.Create was just called")
 	}
 	callInfo := struct {
 		Ctx    context.Context
@@ -94,8 +94,8 @@ func (mock *InterfaceMock) Create(ctx context.Context, ticket store.Ticket) (str
 
 // CreateCalls gets all the calls that were made to Create.
 // Check the length with:
-//     len(mockedInterface.CreateCalls())
-func (mock *InterfaceMock) CreateCalls() []struct {
+//     len(mockedTickets.CreateCalls())
+func (mock *TicketsMock) CreateCalls() []struct {
 	Ctx    context.Context
 	Ticket store.Ticket
 } {
@@ -110,9 +110,9 @@ func (mock *InterfaceMock) CreateCalls() []struct {
 }
 
 // Get calls GetFunc.
-func (mock *InterfaceMock) Get(ctx context.Context, req GetRequest) (store.Ticket, error) {
+func (mock *TicketsMock) Get(ctx context.Context, req GetRequest) (store.Ticket, error) {
 	if mock.GetFunc == nil {
-		panic("InterfaceMock.GetFunc: method is nil but Interface.Get was just called")
+		panic("TicketsMock.GetFunc: method is nil but Tickets.Get was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
@@ -129,8 +129,8 @@ func (mock *InterfaceMock) Get(ctx context.Context, req GetRequest) (store.Ticke
 
 // GetCalls gets all the calls that were made to Get.
 // Check the length with:
-//     len(mockedInterface.GetCalls())
-func (mock *InterfaceMock) GetCalls() []struct {
+//     len(mockedTickets.GetCalls())
+func (mock *TicketsMock) GetCalls() []struct {
 	Ctx context.Context
 	Req GetRequest
 } {
@@ -145,9 +145,9 @@ func (mock *InterfaceMock) GetCalls() []struct {
 }
 
 // Update calls UpdateFunc.
-func (mock *InterfaceMock) Update(ctx context.Context, ticket store.Ticket) error {
+func (mock *TicketsMock) Update(ctx context.Context, ticket store.Ticket) error {
 	if mock.UpdateFunc == nil {
-		panic("InterfaceMock.UpdateFunc: method is nil but Interface.Update was just called")
+		panic("TicketsMock.UpdateFunc: method is nil but Tickets.Update was just called")
 	}
 	callInfo := struct {
 		Ctx    context.Context
@@ -164,8 +164,8 @@ func (mock *InterfaceMock) Update(ctx context.Context, ticket store.Ticket) erro
 
 // UpdateCalls gets all the calls that were made to Update.
 // Check the length with:
-//     len(mockedInterface.UpdateCalls())
-func (mock *InterfaceMock) UpdateCalls() []struct {
+//     len(mockedTickets.UpdateCalls())
+func (mock *TicketsMock) UpdateCalls() []struct {
 	Ctx    context.Context
 	Ticket store.Ticket
 } {
