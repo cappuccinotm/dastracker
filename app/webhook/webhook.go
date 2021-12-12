@@ -10,6 +10,9 @@ import (
 	"net/http"
 )
 
+//go:generate rm -f interface_mock.go
+//go:generate moq -out interface_mock.go -fmt goimports . Interface
+
 // Interface defines methods to create and update webhooks.
 type Interface interface {
 	Create(ctx context.Context, tracker, trigger string) (store.Webhook, error)
@@ -98,7 +101,7 @@ func (m *Manager) whLoaderMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r.WithContext(putWebhook(ctx, wh)))
+		next.ServeHTTP(w, r.WithContext(PutWebhook(ctx, wh)))
 	})
 }
 

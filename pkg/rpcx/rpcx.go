@@ -5,6 +5,9 @@ import (
 	"net/rpc/jsonrpc"
 )
 
+//go:generate rm -f client_mock.go
+//go:generate moq -out client_mock.go -fmt goimports . Client
+
 // Dialer is a maker interface dialing to rpc server and returning new Client
 type Dialer interface {
 	Dial(network, address string) (RPCClient, error)

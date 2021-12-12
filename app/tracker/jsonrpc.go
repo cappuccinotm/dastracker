@@ -53,7 +53,12 @@ func (rpc *JSONRPC) Subscribe(ctx context.Context, req SubscribeReq) error {
 		return fmt.Errorf("create webhook: %w", err)
 	}
 
-	req.Vars.Set("_url", wh.URL())
+	url, err := wh.URL()
+	if err != nil {
+		return fmt.Errorf("make url from webhook %q: %w", wh.ID, err)
+	}
+
+	req.Vars.Set("_url", url)
 
 	var resp struct{}
 	if err := rpc.cl.Call(ctx, fmt.Sprintf("%s.Subscribe", rpc.name), req, &resp); err != nil {

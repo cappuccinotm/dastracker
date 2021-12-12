@@ -20,6 +20,8 @@ func GetWebhook(ctx context.Context) (store.Webhook, error) {
 	return store.Webhook{}, ErrNoWebhook
 }
 
-func putWebhook(ctx context.Context, wh store.Webhook) context.Context {
+// PutWebhook puts the provided webhook information to the given context.
+// Should not be used out of tests outside of webhook package.
+func PutWebhook(ctx context.Context, wh store.Webhook) context.Context {
 	return context.WithValue(ctx, whKey{}, wh)
 }
