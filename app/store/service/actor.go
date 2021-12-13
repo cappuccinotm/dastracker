@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/flow"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
@@ -20,7 +22,7 @@ const maxConcurrentUpdates = 15
 // wrapped tracker according to the job provided by the Flow.
 type Actor struct {
 	Tracker       tracker.Interface
-	Engine        engine.Tickets
+	TicketsStore  engine.Tickets
 	Flow          flow.Interface
 	Log           *log.Logger
 	UpdateTimeout time.Duration
@@ -34,11 +36,15 @@ func (s *Actor) Listen(ctx context.Context) error {
 		return fmt.Errorf("updates listener stopped, reason: %w", err)
 	}
 
+	s.Log.Printf("[INFO] started actor listener with tracker %s", s.Tracker.Name())
+
 	return nil
 }
 
 // handleUpdate runs the jobs concurrently over the given update
 func (s *Actor) handleUpdate(ctx context.Context, upd store.Update) {
+	s.Log.Printf("[DEBUG] received update %+v", upd)
+
 	if s.UpdateTimeout != 0 {
 		var cancel func()
 		ctx, cancel = context.WithTimeout(ctx, s.UpdateTimeout)
@@ -67,14 +73,18 @@ func (s *Actor) handleUpdate(ctx context.Context, upd store.Update) {
 
 // runJob goes through the job's flow
 func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) error {
-	ticket, err := s.Engine.Get(ctx, engine.GetRequest{Locator: upd.ReceivedFrom})
-	if err != nil {
+	s.Log.Printf("[DEBUG] running job %s, triggered by %s", job.Name, job.TriggerName)
+
+	ticket, err := s.TicketsStore.Get(ctx, engine.GetRequest{Locator: upd.ReceivedFrom})
+	if err != nil && !errors.Is(err, errs.ErrNotFound) {
 		return fmt.Errorf("get ticket by locator %s: %w", upd.ReceivedFrom, err)
 	}
 
 	ticket.Patch(upd)
 
 	for _, act := range job.Actions {
+		s.Log.Printf("[DEBUG] running action %s with vars %+v", act.Name, act.With)
+
 		// TODO(semior): add support of detached calls
 		vars, err := act.With.Evaluate(upd)
 		if err != nil {
@@ -90,14 +100,14 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 	}
 
 	if ticket.ID == "" {
-		if ticket.ID, err = s.Engine.Create(ctx, ticket); err != nil {
+		if ticket.ID, err = s.TicketsStore.Create(ctx, ticket); err != nil {
 			return fmt.Errorf("create ticket: %w", err)
 		}
 
 		return nil
 	}
 
-	if err = s.Engine.Update(ctx, ticket); err != nil {
+	if err = s.TicketsStore.Update(ctx, ticket); err != nil {
 		return fmt.Errorf("update ticket from %s: %w", upd.ReceivedFrom, err)
 	}
 

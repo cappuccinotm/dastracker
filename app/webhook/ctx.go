@@ -2,9 +2,12 @@ package webhook
 
 import (
 	"context"
-	"github.com/cappuccinotm/dastracker/app/errs"
+	"errors"
 	"github.com/cappuccinotm/dastracker/app/store"
 )
+
+// ErrNoWebhook indicates that the webhook in the provided context was not found.
+var ErrNoWebhook = errors.New("no webhook in the provided context")
 
 type whKey struct{}
 
@@ -12,13 +15,13 @@ type whKey struct{}
 func GetWebhook(ctx context.Context) (store.Webhook, error) {
 	i := ctx.Value(whKey{})
 	if i == nil {
-		return store.Webhook{}, errs.ErrNoWebhook
+		return store.Webhook{}, ErrNoWebhook
 	}
 
 	if wh, ok := i.(store.Webhook); ok {
 		return wh, nil
 	}
-	return store.Webhook{}, errs.ErrNoWebhook
+	return store.Webhook{}, ErrNoWebhook
 }
 
 // PutWebhook puts the provided webhook information to the given context.

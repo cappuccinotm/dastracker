@@ -9,9 +9,8 @@ import (
 
 // Standard errors.
 var (
-	ErrNotFound  = errors.New("resource not found")
-	ErrExists    = errors.New("resource already exists")
-	ErrNoWebhook = errors.New("no webhook in the provided context")
+	ErrNotFound = errors.New("resource not found")
+	ErrExists   = errors.New("resource already exists")
 )
 
 // ErrMethodParseFailed indicates that the Request contains

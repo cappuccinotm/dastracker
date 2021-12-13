@@ -25,7 +25,12 @@ type Ticket struct {
 }
 
 // Patch updates ticket fields with given update values.
-func (t *Ticket) Patch(upd Update) { t.Content = upd.Content }
+func (t *Ticket) Patch(upd Update) {
+	t.Content = upd.Content
+	if !upd.ReceivedFrom.Empty() {
+		t.TrackerIDs.Set(upd.ReceivedFrom.Tracker, upd.ReceivedFrom.TaskID)
+	}
+}
 
 // TrackerIDs is a wrapper for a set of trackerIDs.
 // Key - tracker name, value - task ID.
@@ -47,7 +52,7 @@ func (m *TrackerIDs) Add(trackerName, taskID string) error {
 
 // Set sets the task ID in the list of trackers.
 func (m *TrackerIDs) Set(trackerName, taskID string) {
-	if m == nil {
+	if *m == nil {
 		*m = map[string]string{}
 	}
 	(*m)[trackerName] = taskID
