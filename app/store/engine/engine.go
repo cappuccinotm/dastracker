@@ -5,8 +5,8 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
-//go:generate moq -out tickets_mock.go -fmt goimports . Tickets
-//go:generate moq -out webhooks_mock.go -fmt goimports . Webhooks
+//go:generate moq -out ticket_mock.go -fmt goimports . Tickets
+//go:generate moq -out webhook_mock.go -fmt goimports . Webhooks
 
 // Tickets describes methods each storage should implement.
 type Tickets interface {

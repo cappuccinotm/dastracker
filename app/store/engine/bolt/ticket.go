@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	ticketsBktName = "tickets"
-	refsBktName    = "refs"
+	ticketsBktName    = "tickets"
+	ticketRefsBktName = "refs"
 )
 
 // Tickets implements engine.Tickets over BoltDB.
@@ -37,8 +37,8 @@ func NewTickets(fileName string, options bolt.Options) (*Tickets, error) {
 			return fmt.Errorf("failed to create top-level bucket %s: %w", ticketsBktName, err)
 		}
 
-		if _, err := tx.CreateBucketIfNotExists([]byte(refsBktName)); err != nil {
-			return fmt.Errorf("failed to create top-level bucket %s: %w", refsBktName, err)
+		if _, err := tx.CreateBucketIfNotExists([]byte(ticketRefsBktName)); err != nil {
+			return fmt.Errorf("failed to create top-level bucket %s: %w", ticketRefsBktName, err)
 		}
 
 		return nil
@@ -123,7 +123,7 @@ func (b *Tickets) Get(_ context.Context, req engine.GetRequest) (store.Ticket, e
 func (b *Tickets) putTicketRefs(tx *bolt.Tx, ticketID string, trackerIDs store.TrackerIDs) error {
 	locators := trackerIDs.Locators()
 	for _, locator := range locators {
-		if err := tx.Bucket([]byte(refsBktName)).Put([]byte(taskRef(locator)), []byte(ticketID)); err != nil {
+		if err := tx.Bucket([]byte(ticketRefsBktName)).Put([]byte(taskRef(locator)), []byte(ticketID)); err != nil {
 			return fmt.Errorf("put ref for %q on %s: %w", locator.String(), ticketID, err)
 		}
 	}
@@ -132,7 +132,7 @@ func (b *Tickets) putTicketRefs(tx *bolt.Tx, ticketID string, trackerIDs store.T
 
 func (b *Tickets) getTicketID(tx *bolt.Tx, locator store.Locator) (string, error) {
 	ref := taskRef(locator)
-	ticketID := tx.Bucket([]byte(refsBktName)).Get([]byte(ref))
+	ticketID := tx.Bucket([]byte(ticketRefsBktName)).Get([]byte(ref))
 	if ticketID == nil {
 		return "", errs.ErrNotFound
 	}
