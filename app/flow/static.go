@@ -3,6 +3,7 @@ package flow
 import (
 	"context"
 	"fmt"
+	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"gopkg.in/yaml.v3"
 	"os"
@@ -59,7 +60,7 @@ func NewStatic(path string) (*Static, error) {
 func (s *Static) GetSubscribedJobs(_ context.Context, triggerName string) ([]store.Job, error) {
 	jobs, triggerPresent := s.subscriptions[triggerName]
 	if !triggerPresent {
-		return nil, fmt.Errorf("trigger was not found: %w", ErrNotFound)
+		return nil, fmt.Errorf("trigger was not found: %w", errs.ErrNotFound)
 	}
 	return jobs, nil
 }
@@ -75,21 +76,21 @@ func (c config) validate() error {
 		triggers[trigger.Name] = struct{}{}
 		if _, trackerPresent := trackers[trigger.Tracker]; !trackerPresent {
 			return fmt.Errorf("tracker %q, referred by trigger %q, is not registered: %w",
-				trigger.Tracker, trigger.Name, ErrNotFound)
+				trigger.Tracker, trigger.Name, errs.ErrNotFound)
 		}
 	}
 
 	for _, job := range c.Jobs {
 		if _, triggerPresent := triggers[job.TriggerName]; !triggerPresent {
 			return fmt.Errorf("trigger %q, referred by job %q, is not registered: %w",
-				job.TriggerName, job.Name, ErrNotFound)
+				job.TriggerName, job.Name, errs.ErrNotFound)
 		}
 
 		for _, act := range job.Actions {
 			tracker, _ := act.Path()
 			if _, trackerPresent := trackers[tracker]; !trackerPresent {
 				return fmt.Errorf("tracker %q, referred by action %q in job %q, is not registered: %w",
-					tracker, act.Name, job.Name, ErrNotFound)
+					tracker, act.Name, job.Name, errs.ErrNotFound)
 			}
 		}
 	}

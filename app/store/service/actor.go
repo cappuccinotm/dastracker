@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/cappuccinotm/dastracker/app/flow"
 	"github.com/cappuccinotm/dastracker/app/store"
@@ -69,10 +68,7 @@ func (s *Actor) handleUpdate(ctx context.Context, upd store.Update) {
 // runJob goes through the job's flow
 func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) error {
 	ticket, err := s.Engine.Get(ctx, engine.GetRequest{Locator: upd.ReceivedFrom})
-	switch {
-	case errors.Is(err, engine.ErrNotFound):
-		ticket = store.Ticket{TrackerIDs: map[string]string{}}
-	case err != nil:
+	if err != nil {
 		return fmt.Errorf("get ticket by locator %s: %w", upd.ReceivedFrom, err)
 	}
 
@@ -90,7 +86,7 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 			return fmt.Errorf("call to %s: %w", act.Name, err)
 		}
 
-		ticket.TrackerIDs[resp.Tracker] = resp.TaskID
+		ticket.TrackerIDs.Set(resp.Tracker, resp.TaskID)
 	}
 
 	if ticket.ID == "" {

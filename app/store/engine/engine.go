@@ -2,8 +2,6 @@ package engine
 
 import (
 	"context"
-	"errors"
-
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
@@ -33,6 +31,3 @@ type GetRequest struct {
 	Locator  store.Locator `json:"locator"`
 	TicketID string        `json:"ticket_id"`
 }
-
-// ErrNotFound shows that the requested entity was not found in the store.
-var ErrNotFound = errors.New("not found")

@@ -2,7 +2,6 @@ package flow
 
 import (
 	"context"
-	"errors"
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
@@ -13,6 +12,3 @@ import (
 type Interface interface {
 	GetSubscribedJobs(ctx context.Context, triggerName string) ([]store.Job, error)
 }
-
-// ErrNotFound indicates that the entity was not found
-var ErrNotFound = errors.New("not found")

@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"context"
+	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
@@ -11,13 +12,13 @@ type whKey struct{}
 func GetWebhook(ctx context.Context) (store.Webhook, error) {
 	i := ctx.Value(whKey{})
 	if i == nil {
-		return store.Webhook{}, ErrNoWebhook
+		return store.Webhook{}, errs.ErrNoWebhook
 	}
 
 	if wh, ok := i.(store.Webhook); ok {
 		return wh, nil
 	}
-	return store.Webhook{}, ErrNoWebhook
+	return store.Webhook{}, errs.ErrNoWebhook
 }
 
 // PutWebhook puts the provided webhook information to the given context.

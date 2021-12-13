@@ -3,6 +3,7 @@ package tracker
 import (
 	"context"
 	"fmt"
+	"github.com/cappuccinotm/dastracker/app/errs"
 	"golang.org/x/sync/errgroup"
 	"log"
 	"strings"
@@ -53,7 +54,7 @@ func (m *Dispatcher) Call(ctx context.Context, req Request) (Response, error) {
 
 	trk, present := m.trackers[trackerName]
 	if !present {
-		return Response{}, ErrTrackerNotRegistered(trackerName)
+		return Response{}, errs.ErrTrackerNotRegistered(trackerName)
 	}
 
 	resp, err := trk.Call(ctx, req)
@@ -68,7 +69,7 @@ func (m *Dispatcher) Call(ctx context.Context, req Request) (Response, error) {
 func (m *Dispatcher) Subscribe(ctx context.Context, req SubscribeReq) error {
 	trk, present := m.trackers[req.Tracker]
 	if !present {
-		return ErrTrackerNotRegistered(req.Tracker)
+		return errs.ErrTrackerNotRegistered(req.Tracker)
 	}
 
 	if err := trk.Subscribe(ctx, req); err != nil {
@@ -102,13 +103,4 @@ func (m *Dispatcher) Listen(ctx context.Context, h Handler) error {
 	}
 
 	return nil
-}
-
-// ErrTrackerNotRegistered indicates about the call to the tracker, that was
-// not registered by the Dispatcher.
-type ErrTrackerNotRegistered string
-
-// Error returns the string representation of the error.
-func (e ErrTrackerNotRegistered) Error() string {
-	return fmt.Sprintf("tracker %q is not registered", string(e))
 }
