@@ -1,12 +1,26 @@
-package webhook
+// Package errs contains declarations of domain-level errors
+// wrappers and methods to map them for client identification of the error.
+package errs
 
 import (
 	"errors"
 	"fmt"
 )
 
-// ErrNoWebhook indicates that the webhook in the provided context was not found.
-var ErrNoWebhook = errors.New("no webhook in the provided context")
+// Standard errors.
+var (
+	ErrNotFound = errors.New("resource not found")
+	ErrExists   = errors.New("resource already exists")
+)
+
+// ErrMethodParseFailed indicates that the Request contains
+// an invalid path to the method.
+type ErrMethodParseFailed string
+
+// Error returns the string representation of the error.
+func (e ErrMethodParseFailed) Error() string {
+	return fmt.Sprintf("method path is invalid: %s", string(e))
+}
 
 // ErrTrackerNotRegistered indicates about the call to the tracker, that was
 // not registered by the Dispatcher.

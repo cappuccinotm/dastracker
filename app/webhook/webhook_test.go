@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
@@ -21,7 +22,7 @@ func TestManager_Register(t *testing.T) {
 	t.Run("tracker is already registered", func(t *testing.T) {
 		err := (&Manager{registeredHandlers: []string{"trk1"}}).
 			Register("trk1", http.Handler(nil))
-		var eTrkRegistered ErrTrackerRegistered
+		var eTrkRegistered errs.ErrTrackerRegistered
 		assert.ErrorAs(t, err, &eTrkRegistered)
 		assert.Equal(t, "trk1", string(eTrkRegistered))
 	})
@@ -124,7 +125,7 @@ func TestManager_SetTrackerID(t *testing.T) {
 func TestManager_Create(t *testing.T) {
 	t.Run("tracker not registered", func(t *testing.T) {
 		wh, err := (&Manager{}).Create(context.Background(), "trk1", "trigger")
-		var eTrkNotRegistered ErrTrackerNotRegistered
+		var eTrkNotRegistered errs.ErrTrackerNotRegistered
 		assert.ErrorAs(t, err, &eTrkNotRegistered)
 		assert.Equal(t, "trk1", string(eTrkNotRegistered))
 		assert.Empty(t, wh)

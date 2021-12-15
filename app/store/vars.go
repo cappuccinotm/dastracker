@@ -28,7 +28,7 @@ func (v *Vars) UnmarshalYAML(value *yaml.Node) error {
 
 // Has returns true if variable with specified key is present.
 func (v *Vars) Has(key string) bool {
-	if v == nil {
+	if *v == nil {
 		*v = map[string]string{}
 	}
 	_, ok := (*v)[key]
@@ -40,7 +40,7 @@ func (v Vars) Get(name string) string { return v[name] }
 
 // Set sets the value of the variable.
 func (v *Vars) Set(name, val string) {
-	if v == nil {
+	if *v == nil {
 		*v = map[string]string{}
 	}
 	(*v)[name] = val

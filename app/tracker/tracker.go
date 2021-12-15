@@ -2,7 +2,7 @@ package tracker
 
 import (
 	"context"
-	"fmt"
+	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"strings"
 )
@@ -43,7 +43,7 @@ type Request struct {
 func (r Request) ParseMethodURI() (tracker, method string, err error) {
 	dividerIdx := strings.IndexRune(r.MethodURI, '/')
 	if dividerIdx == -1 || dividerIdx == len(r.MethodURI)-1 || dividerIdx == 0 {
-		return "", "", ErrMethodParseFailed(r.MethodURI)
+		return "", "", errs.ErrMethodParseFailed(r.MethodURI)
 	}
 
 	return r.MethodURI[:dividerIdx], r.MethodURI[dividerIdx+1:], nil
@@ -60,13 +60,4 @@ type SubscribeReq struct {
 	TriggerName string
 	Tracker     string
 	Vars        store.Vars
-}
-
-// ErrMethodParseFailed indicates that the Request contains
-// an invalid path to the method.
-type ErrMethodParseFailed string
-
-// Error returns the string representation of the error.
-func (e ErrMethodParseFailed) Error() string {
-	return fmt.Sprintf("method path is invalid: %s", string(e))
 }

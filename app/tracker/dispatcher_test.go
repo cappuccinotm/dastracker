@@ -2,6 +2,7 @@ package tracker
 
 import (
 	"context"
+	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
@@ -50,7 +51,7 @@ func TestDispatcher_Call(t *testing.T) {
 			MethodURI: "trk3/method", Ticket: store.Ticket{ID: "ticket-id"},
 		})
 		assert.Empty(t, resp)
-		var errTrackerNotRegistered ErrTrackerNotRegistered
+		var errTrackerNotRegistered errs.ErrTrackerNotRegistered
 		assert.ErrorAs(t, err, &errTrackerNotRegistered)
 		assert.Equal(t, "trk3", string(errTrackerNotRegistered))
 	})
@@ -60,7 +61,7 @@ func TestDispatcher_Call(t *testing.T) {
 			MethodURI: "method", Ticket: store.Ticket{ID: "ticket-id"},
 		})
 		assert.Empty(t, resp)
-		var errMethodParse ErrMethodParseFailed
+		var errMethodParse errs.ErrMethodParseFailed
 		assert.ErrorAs(t, err, &errMethodParse)
 		assert.Equal(t, "method", string(errMethodParse))
 	})
@@ -70,7 +71,7 @@ func TestDispatcher_Call(t *testing.T) {
 			MethodURI: "", Ticket: store.Ticket{ID: "ticket-id"},
 		})
 		assert.Empty(t, resp)
-		var errMethodParse ErrMethodParseFailed
+		var errMethodParse errs.ErrMethodParseFailed
 		assert.ErrorAs(t, err, &errMethodParse)
 		assert.Empty(t, string(errMethodParse))
 	})
@@ -119,7 +120,7 @@ func TestDispatcher_Subscribe(t *testing.T) {
 			TriggerName: "some-trigger",
 			Tracker:     "trk3",
 		})
-		var errTrackerNotRegistered ErrTrackerNotRegistered
+		var errTrackerNotRegistered errs.ErrTrackerNotRegistered
 		assert.ErrorAs(t, err, &errTrackerNotRegistered)
 		assert.Equal(t, "trk3", string(errTrackerNotRegistered))
 	})
@@ -129,7 +130,7 @@ func TestDispatcher_Subscribe(t *testing.T) {
 			TriggerName: "some-trigger",
 			Tracker:     "",
 		})
-		var errTrackerNotRegistered ErrTrackerNotRegistered
+		var errTrackerNotRegistered errs.ErrTrackerNotRegistered
 		assert.ErrorAs(t, err, &errTrackerNotRegistered)
 		assert.Equal(t, "", string(errTrackerNotRegistered))
 	})
@@ -193,5 +194,5 @@ func prepareDispatcher(t *testing.T) (
 }
 
 func TestErrTrackerNotRegistered_Error(t *testing.T) {
-	assert.Equal(t, `tracker "blah" is not registered`, ErrTrackerNotRegistered("blah").Error())
+	assert.Equal(t, `tracker "blah" is not registered`, errs.ErrTrackerNotRegistered("blah").Error())
 }

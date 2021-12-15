@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
@@ -44,7 +45,7 @@ func NewManager(baseURL string, r *mux.Router, store engine.Webhooks, l logx.Log
 // Register registers a new tracker handler.
 func (m *Manager) Register(name string, handler http.Handler) error {
 	if m.registered(name) {
-		return ErrTrackerRegistered(name)
+		return errs.ErrTrackerRegistered(name)
 	}
 	m.registeredHandlers = append(m.registeredHandlers, name)
 	m.r.Handle(fmt.Sprintf("/%s/{whID}", name), handler)
@@ -54,7 +55,7 @@ func (m *Manager) Register(name string, handler http.Handler) error {
 // Create registers a new webhook for a specific trigger.
 func (m *Manager) Create(ctx context.Context, tracker, trigger string) (store.Webhook, error) {
 	if !m.registered(tracker) {
-		return store.Webhook{}, ErrTrackerNotRegistered(tracker)
+		return store.Webhook{}, errs.ErrTrackerNotRegistered(tracker)
 	}
 
 	var err error

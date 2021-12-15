@@ -2,9 +2,14 @@ package service
 
 import (
 	"context"
+	"github.com/cappuccinotm/dastracker/app/errs"
+	"github.com/cappuccinotm/dastracker/app/store"
+	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/tracker"
 	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"log"
 	"reflect"
 	"runtime"
 	"sync"
@@ -30,6 +35,7 @@ func TestActor_Listen(t *testing.T) {
 				return ctx.Err()
 			},
 		},
+		Log: log.Default(),
 	}
 
 	ctx, stop := context.WithCancel(context.Background())
@@ -57,4 +63,169 @@ func (l *mutex) WithLock(fn func()) {
 	(*sync.Mutex)(l).Lock()
 	fn()
 	(*sync.Mutex)(l).Unlock()
+}
+
+func TestActor_runJob(t *testing.T) {
+	t.Run("update of the existing ticket", func(t *testing.T) {
+		initialTicket := store.Ticket{
+			ID: "ticket-id",
+			TrackerIDs: map[string]string{
+				"other-tracker": "other-id",
+				"tracker":       "task-id",
+			},
+			Content: store.Content{
+				Body:   "ticket-body",
+				Title:  "ticket-title",
+				Fields: map[string]string{"field": "value"},
+			},
+		}
+		expectedTrackerReq := tracker.Request{
+			MethodURI: "tracker/create-or-update",
+			Ticket: store.Ticket{
+				ID: "ticket-id",
+				TrackerIDs: map[string]string{
+					"other-tracker": "other-id",
+					"tracker":       "task-id",
+				},
+				Content: store.Content{
+					Body:   "updated-body",
+					Title:  "updated-title",
+					Fields: map[string]string{"field": "updated-value"},
+				},
+			},
+			Vars: map[string]string{
+				"msg":  "Task with id task-id has been updated",
+				"body": "Body: updated-body",
+				"url":  "https://blah.com",
+			},
+		}
+		svc := &Actor{
+			Log: log.Default(),
+			TicketsStore: &engine.TicketsMock{
+				GetFunc: func(_ context.Context, req engine.GetRequest) (store.Ticket, error) {
+					assert.Equal(t, engine.GetRequest{
+						Locator: store.Locator{Tracker: "tracker", TaskID: "task-id"},
+					}, req)
+					return initialTicket, nil
+				},
+				UpdateFunc: func(_ context.Context, ticket store.Ticket) error {
+					expectedTicket := initialTicket
+					expectedTicket.TrackerIDs["new-tracker"] = "new-task-id"
+					expectedTicket.Content.Body = "updated-body"
+					expectedTicket.Content.Title = "updated-title"
+					expectedTicket.Content.Fields["field"] = "updated-value"
+					assert.Equal(t, expectedTicket, ticket)
+					return nil
+				},
+			},
+			Tracker: &tracker.InterfaceMock{
+				CallFunc: func(_ context.Context, req tracker.Request) (tracker.Response, error) {
+					assert.Equal(t, expectedTrackerReq, req)
+					return tracker.Response{Tracker: "new-tracker", TaskID: "new-task-id"}, nil
+				},
+			},
+		}
+
+		err := svc.runJob(
+			context.Background(),
+			store.Job{
+				Name:        "test-job",
+				TriggerName: "test-trigger",
+				Actions: []store.Action{
+					{Name: "tracker/create-or-update", With: map[string]string{
+						"msg":  "Task with id {{.Update.ReceivedFrom.TaskID}} has been updated",
+						"body": "Body: {{.Update.Content.Body}}",
+						"url":  "{{.Update.URL}}",
+					}},
+				},
+			},
+			store.Update{
+				URL:          "https://blah.com",
+				ReceivedFrom: store.Locator{Tracker: "tracker", TaskID: "task-id"},
+				Content: store.Content{
+					Body:   "updated-body",
+					Title:  "updated-title",
+					Fields: map[string]string{"field": "updated-value"},
+				},
+			},
+		)
+		require.NoError(t, err)
+	})
+
+	t.Run("creating new ticket", func(t *testing.T) {
+		initialTicket := store.Ticket{
+			Content: store.Content{
+				Body:   "ticket-body",
+				Title:  "ticket-title",
+				Fields: map[string]string{"field": "value"},
+			},
+		}
+		expectedTrackerReq := tracker.Request{
+			MethodURI: "tracker/create-or-update",
+			Ticket: store.Ticket{
+				TrackerIDs: map[string]string{"tracker": "task-id"},
+				Content: store.Content{
+					Body:   "updated-body",
+					Title:  "updated-title",
+					Fields: map[string]string{"field": "updated-value"},
+				},
+			},
+			Vars: map[string]string{
+				"msg":  "Task with id task-id has been updated",
+				"body": "Body: updated-body",
+				"url":  "https://blah.com",
+			},
+		}
+		svc := &Actor{
+			Log: log.Default(),
+			TicketsStore: &engine.TicketsMock{
+				GetFunc: func(_ context.Context, req engine.GetRequest) (store.Ticket, error) {
+					assert.Equal(t, engine.GetRequest{
+						Locator: store.Locator{Tracker: "tracker", TaskID: "task-id"},
+					}, req)
+					return store.Ticket{}, errs.ErrNotFound
+				},
+				CreateFunc: func(_ context.Context, ticket store.Ticket) (string, error) {
+					expectedTicket := initialTicket
+					expectedTicket.TrackerIDs = map[string]string{"new-tracker": "new-task-id", "tracker": "task-id"}
+					expectedTicket.Content.Body = "updated-body"
+					expectedTicket.Content.Title = "updated-title"
+					expectedTicket.Content.Fields["field"] = "updated-value"
+					assert.Equal(t, expectedTicket, ticket)
+					return "ticket-id", nil
+				},
+			},
+			Tracker: &tracker.InterfaceMock{
+				CallFunc: func(_ context.Context, req tracker.Request) (tracker.Response, error) {
+					assert.Equal(t, expectedTrackerReq, req)
+					return tracker.Response{Tracker: "new-tracker", TaskID: "new-task-id"}, nil
+				},
+			},
+		}
+
+		err := svc.runJob(
+			context.Background(),
+			store.Job{
+				Name:        "test-job",
+				TriggerName: "test-trigger",
+				Actions: []store.Action{
+					{Name: "tracker/create-or-update", With: map[string]string{
+						"msg":  "Task with id {{.Update.ReceivedFrom.TaskID}} has been updated",
+						"body": "Body: {{.Update.Content.Body}}",
+						"url":  "{{.Update.URL}}",
+					}},
+				},
+			},
+			store.Update{
+				URL:          "https://blah.com",
+				ReceivedFrom: store.Locator{Tracker: "tracker", TaskID: "task-id"},
+				Content: store.Content{
+					Body:   "updated-body",
+					Title:  "updated-title",
+					Fields: map[string]string{"field": "updated-value"},
+				},
+			},
+		)
+		require.NoError(t, err)
+	})
 }

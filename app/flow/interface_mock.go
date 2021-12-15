@@ -23,6 +23,9 @@ var _ Interface = &InterfaceMock{}
 //             GetSubscribedJobsFunc: func(ctx context.Context, triggerName string) ([]store.Job, error) {
 // 	               panic("mock out the GetSubscribedJobs method")
 //             },
+//             GetTrackersFunc: func(in1 context.Context) ([]Tracker, error) {
+// 	               panic("mock out the GetTrackers method")
+//             },
 //         }
 //
 //         // use mockedInterface in code that requires Interface
@@ -33,6 +36,9 @@ type InterfaceMock struct {
 	// GetSubscribedJobsFunc mocks the GetSubscribedJobs method.
 	GetSubscribedJobsFunc func(ctx context.Context, triggerName string) ([]store.Job, error)
 
+	// GetTrackersFunc mocks the GetTrackers method.
+	GetTrackersFunc func(in1 context.Context) ([]Tracker, error)
+
 	// calls tracks calls to the methods.
 	calls struct {
 		// GetSubscribedJobs holds details about calls to the GetSubscribedJobs method.
@@ -42,8 +48,14 @@ type InterfaceMock struct {
 			// TriggerName is the triggerName argument value.
 			TriggerName string
 		}
+		// GetTrackers holds details about calls to the GetTrackers method.
+		GetTrackers []struct {
+			// In1 is the in1 argument value.
+			In1 context.Context
+		}
 	}
 	lockGetSubscribedJobs sync.RWMutex
+	lockGetTrackers       sync.RWMutex
 }
 
 // GetSubscribedJobs calls GetSubscribedJobsFunc.
@@ -78,5 +90,36 @@ func (mock *InterfaceMock) GetSubscribedJobsCalls() []struct {
 	mock.lockGetSubscribedJobs.RLock()
 	calls = mock.calls.GetSubscribedJobs
 	mock.lockGetSubscribedJobs.RUnlock()
+	return calls
+}
+
+// GetTrackers calls GetTrackersFunc.
+func (mock *InterfaceMock) GetTrackers(in1 context.Context) ([]Tracker, error) {
+	if mock.GetTrackersFunc == nil {
+		panic("InterfaceMock.GetTrackersFunc: method is nil but Interface.GetTrackers was just called")
+	}
+	callInfo := struct {
+		In1 context.Context
+	}{
+		In1: in1,
+	}
+	mock.lockGetTrackers.Lock()
+	mock.calls.GetTrackers = append(mock.calls.GetTrackers, callInfo)
+	mock.lockGetTrackers.Unlock()
+	return mock.GetTrackersFunc(in1)
+}
+
+// GetTrackersCalls gets all the calls that were made to GetTrackers.
+// Check the length with:
+//     len(mockedInterface.GetTrackersCalls())
+func (mock *InterfaceMock) GetTrackersCalls() []struct {
+	In1 context.Context
+} {
+	var calls []struct {
+		In1 context.Context
+	}
+	mock.lockGetTrackers.RLock()
+	calls = mock.calls.GetTrackers
+	mock.lockGetTrackers.RUnlock()
 	return calls
 }

@@ -2,13 +2,11 @@ package engine
 
 import (
 	"context"
-	"errors"
-
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
-//go:generate moq -out tickets_mock.go -fmt goimports . Tickets
-//go:generate moq -out webhooks_mock.go -fmt goimports . Webhooks
+//go:generate moq -out ticket_mock.go -fmt goimports . Tickets
+//go:generate moq -out webhook_mock.go -fmt goimports . Webhooks
 
 // Tickets describes methods each storage should implement.
 type Tickets interface {
@@ -33,6 +31,3 @@ type GetRequest struct {
 	Locator  store.Locator `json:"locator"`
 	TicketID string        `json:"ticket_id"`
 }
-
-// ErrNotFound shows that the requested entity was not found in the store.
-var ErrNotFound = errors.New("not found")

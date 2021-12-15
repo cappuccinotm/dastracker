@@ -2,8 +2,12 @@ package webhook
 
 import (
 	"context"
+	"errors"
 	"github.com/cappuccinotm/dastracker/app/store"
 )
+
+// ErrNoWebhook indicates that the webhook in the provided context was not found.
+var ErrNoWebhook = errors.New("no webhook in the provided context")
 
 type whKey struct{}
 
