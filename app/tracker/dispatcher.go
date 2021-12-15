@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/cappuccinotm/dastracker/app/errs"
+	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"golang.org/x/sync/errgroup"
-	"log"
 	"strings"
 )
 
@@ -15,11 +15,11 @@ import (
 // dispatches all requests to the desired trackers.
 type Dispatcher struct {
 	trackers map[string]Interface
-	log      *log.Logger
+	log      logx.Logger
 }
 
 // NewDispatcher makes new instance of Dispatcher.
-func NewDispatcher(lg *log.Logger, trackers []Interface) (*Dispatcher, error) {
+func NewDispatcher(lg logx.Logger, trackers []Interface) (*Dispatcher, error) {
 	svc := &Dispatcher{
 		trackers: map[string]Interface{},
 		log:      lg,

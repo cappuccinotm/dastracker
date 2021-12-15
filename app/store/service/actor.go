@@ -9,8 +9,8 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/tracker"
+	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/go-pkgz/syncs"
-	"log"
 	"time"
 )
 
@@ -24,7 +24,7 @@ type Actor struct {
 	Tracker       tracker.Interface
 	TicketsStore  engine.Tickets
 	Flow          flow.Interface
-	Log           *log.Logger
+	Log           logx.Logger
 	UpdateTimeout time.Duration
 }
 

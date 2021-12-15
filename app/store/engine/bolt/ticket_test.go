@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
+	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
@@ -190,7 +191,7 @@ func prepareTickets(t *testing.T) *Tickets {
 	loc, err := ioutil.TempDir("", "test_dastracker")
 	require.NoError(t, err, "failed to make temp dir")
 
-	svc, err := NewTickets(path.Join(loc, "dastracker_tickets_test.db"), bolt.Options{})
+	svc, err := NewTickets(path.Join(loc, "dastracker_tickets_test.db"), bolt.Options{}, logx.NopLogger())
 	require.NoError(t, err)
 
 	t.Cleanup(func() { assert.NoError(t, os.RemoveAll(loc)) })

@@ -55,6 +55,9 @@ func NewStatic(path string) (*Static, error) {
 	return svc, nil
 }
 
+// GetTrackers returns the list of registered trackers with their configurations.
+func (s *Static) GetTrackers(_ context.Context) ([]Tracker, error) { return s.Trackers, nil }
+
 // GetSubscribedJobs returns the jobs attached to the trigger
 // by the name of the trigger.
 func (s *Static) GetSubscribedJobs(_ context.Context, triggerName string) ([]store.Job, error) {
