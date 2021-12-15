@@ -17,16 +17,16 @@ const (
 	trackerToWhRefsBktName = "tracker_wh_refs"
 )
 
-// Webhook implements engine.Webhooks over the BoltDB storage.
+// Webhooks implements engine.Webhooks over the BoltDB storage.
 // webhooks: key - webhookID, val - webhook
 // refs: key - reference, val - nested bucket with keys as webhookIDs and values as ts
-type Webhook struct {
+type Webhooks struct {
 	fileName string
 	db       *bolt.DB
 }
 
 // NewWebhook creates buckets and initial data processing
-func NewWebhook(fileName string, options bolt.Options) (*Webhook, error) {
+func NewWebhook(fileName string, options bolt.Options) (*Webhooks, error) {
 	db, err := bolt.Open(fileName, 0600, &options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make boltdb for %s: %w", fileName, err)
@@ -48,11 +48,11 @@ func NewWebhook(fileName string, options bolt.Options) (*Webhook, error) {
 	}
 
 	log.Printf("[INFO] webhooks BoltDB instantiated")
-	return &Webhook{db: db, fileName: fileName}, nil
+	return &Webhooks{db: db, fileName: fileName}, nil
 }
 
 // Create creates a webhook in the storage.
-func (b *Webhook) Create(ctx context.Context, wh store.Webhook) (string, error) {
+func (b *Webhooks) Create(ctx context.Context, wh store.Webhook) (string, error) {
 	wh.ID = uuid.NewString()
 
 	if err := b.Update(ctx, wh); err != nil {
@@ -63,7 +63,7 @@ func (b *Webhook) Create(ctx context.Context, wh store.Webhook) (string, error) 
 }
 
 // Get webhook by id.
-func (b *Webhook) Get(_ context.Context, id string) (store.Webhook, error) {
+func (b *Webhooks) Get(_ context.Context, id string) (store.Webhook, error) {
 	var wh store.Webhook
 	err := b.db.View(func(tx *bolt.Tx) error {
 		var err error
@@ -80,7 +80,7 @@ func (b *Webhook) Get(_ context.Context, id string) (store.Webhook, error) {
 }
 
 // Delete webhook by id.
-func (b *Webhook) Delete(_ context.Context, whID string) error {
+func (b *Webhooks) Delete(_ context.Context, whID string) error {
 	err := b.db.Update(func(tx *bolt.Tx) error {
 		wh, err := b.get(tx, whID)
 		if err != nil {
@@ -109,7 +109,7 @@ func (b *Webhook) Delete(_ context.Context, whID string) error {
 }
 
 // Update totally rewrites the provided webhook entry.
-func (b *Webhook) Update(_ context.Context, wh store.Webhook) error {
+func (b *Webhooks) Update(_ context.Context, wh store.Webhook) error {
 	bts, err := json.Marshal(wh)
 	if err != nil {
 		return fmt.Errorf("marshal webhook: %b", err)
@@ -139,10 +139,10 @@ func (b *Webhook) Update(_ context.Context, wh store.Webhook) error {
 }
 
 // List lists the webhooks registered on the given tracker.
-func (b *Webhook) List(_ context.Context, trackerID string) ([]store.Webhook, error) {
+func (b *Webhooks) List(_ context.Context, trackerName string) ([]store.Webhook, error) {
 	var webhooks []store.Webhook
 	err := b.db.View(func(tx *bolt.Tx) error {
-		bkt := tx.Bucket([]byte(trackerToWhRefsBktName)).Bucket([]byte(trackerID))
+		bkt := tx.Bucket([]byte(trackerToWhRefsBktName)).Bucket([]byte(trackerName))
 		if bkt == nil {
 			return nil
 		}
@@ -167,7 +167,7 @@ func (b *Webhook) List(_ context.Context, trackerID string) ([]store.Webhook, er
 	return webhooks, nil
 }
 
-func (b *Webhook) get(tx *bolt.Tx, whID string) (store.Webhook, error) {
+func (b *Webhooks) get(tx *bolt.Tx, whID string) (store.Webhook, error) {
 	bts := tx.Bucket([]byte(webhooksBktName)).Get([]byte(whID))
 	if bts == nil {
 		return store.Webhook{}, errs.ErrNotFound
