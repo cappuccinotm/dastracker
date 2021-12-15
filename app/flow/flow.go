@@ -5,7 +5,7 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
-//go:generate rm -f provider_mock.go
+//go:generate rm -f interface_mock.go
 //go:generate moq -out interface_mock.go -fmt goimports . Interface
 
 // Interface defines methods to access the flow configuration.
