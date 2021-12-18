@@ -39,3 +39,25 @@ type ErrTrackerRegistered string
 func (e ErrTrackerRegistered) Error() string {
 	return fmt.Sprintf("tracker %q is not registered", string(e))
 }
+
+// ErrActionNotSupported indicates that the action is not supported by the
+// tracker.
+type ErrActionNotSupported string
+
+// Error returns the string representation of the error.
+func (e ErrActionNotSupported) Error() string {
+	return fmt.Sprintf("action %q is not supported", string(e))
+}
+
+// ErrUnexpectedStatus indicates that the remote tracker returned an unexpected
+// status code.
+type ErrUnexpectedStatus struct {
+	RequestBody    []byte
+	ResponseBody   []byte
+	ResponseStatus int
+}
+
+// Error returns the string representation of the error.
+func (e ErrUnexpectedStatus) Error() string {
+	return fmt.Sprintf("unexpected status code: %d", e.ResponseStatus)
+}

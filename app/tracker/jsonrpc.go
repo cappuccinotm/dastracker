@@ -47,13 +47,8 @@ func (rpc *JSONRPC) Call(ctx context.Context, req Request) (Response, error) {
 
 	uri := fmt.Sprintf("%s.%s", rpc.name, method)
 
-	rpcReq, err := rpc.transformRPCRequest(req)
-	if err != nil {
-		return Response{}, fmt.Errorf("transform request: %w", err)
-	}
-
 	var resp lib.Response
-	if err := rpc.cl.Call(ctx, uri, rpcReq, &resp); err != nil {
+	if err = rpc.cl.Call(ctx, uri, rpc.transformRPCRequest(req), &resp); err != nil {
 		return Response{}, fmt.Errorf("call remote method %s: %w", req.MethodURI, err)
 	}
 	return rpc.transformRPCResponse(resp), nil
@@ -110,21 +105,17 @@ func (rpc *JSONRPC) Listen(ctx context.Context, h Handler) error {
 	return ctx.Err()
 }
 
-func (rpc *JSONRPC) transformRPCRequest(req Request) (lib.Request, error) {
-	trackerName, _, err := req.ParseMethodURI()
-	if err != nil {
-		return lib.Request{}, fmt.Errorf("parse method uri: %w", err)
-	}
+func (rpc *JSONRPC) transformRPCRequest(req Request) lib.Request {
 	return lib.Request{
 		Ticket: lib.Ticket{
 			ID:     req.Ticket.ID,
-			TaskID: req.Ticket.TrackerIDs.Get(trackerName),
+			TaskID: req.Ticket.TrackerIDs.Get(rpc.name),
 			Title:  req.Ticket.Title,
 			Body:   req.Ticket.Body,
 			Fields: req.Ticket.Fields,
 		},
 		Vars: req.Vars,
-	}, nil
+	}
 }
 
 func (rpc *JSONRPC) transformRPCResponse(resp lib.Response) Response {
