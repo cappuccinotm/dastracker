@@ -9,10 +9,6 @@ import (
 	"text/template"
 )
 
-// VarsFromMap makes a new instance of Vars, not evaluated yet but filled
-// with the provided map.
-func VarsFromMap(m map[string]string) Vars { return m }
-
 // Vars is an alias for a map with variable values.
 type Vars map[string]string
 

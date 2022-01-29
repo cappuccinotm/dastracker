@@ -90,10 +90,10 @@ func TestJSONRPC_Subscribe(t *testing.T) {
 				assert.Equal(t, SubscribeReq{
 					TriggerName: "trigger",
 					Tracker:     "jrpc",
-					Vars: store.VarsFromMap(map[string]string{
+					Vars: map[string]string{
 						"blah": "blah",
 						"_url": "https://blah.com/webhooks/jrpc/trigger-id",
-					}),
+					},
 				}, req)
 				return nil
 			},
@@ -103,7 +103,7 @@ func TestJSONRPC_Subscribe(t *testing.T) {
 	err := svc.Subscribe(context.Background(), SubscribeReq{
 		TriggerName: "trigger",
 		Tracker:     "jrpc",
-		Vars:        store.VarsFromMap(map[string]string{"blah": "blah"}),
+		Vars:        map[string]string{"blah": "blah"},
 	})
 	require.NoError(t, err)
 }
