@@ -5,6 +5,7 @@ import (
 	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"strings"
+	"github.com/cappuccinotm/dastracker/lib"
 )
 
 //go:generate rm -f interface_mock.go
@@ -34,7 +35,7 @@ type Interface interface {
 type Request struct {
 	MethodURI string
 	Ticket    store.Ticket
-	Vars      store.Vars
+	Vars      lib.Vars
 }
 
 // ParseMethodURI parses the MethodURI field of the request, assuming that
@@ -59,5 +60,5 @@ type Response struct {
 type SubscribeReq struct {
 	TriggerName string
 	Tracker     string
-	Vars        store.Vars
+	Vars        lib.Vars
 }

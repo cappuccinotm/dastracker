@@ -2,7 +2,10 @@ module github.com/cappuccinotm/dastracker
 
 go 1.17
 
+replace github.com/cappuccinotm/dastracker/lib => ./lib
+
 require (
+	github.com/cappuccinotm/dastracker/lib v0.0.0-00010101000000-000000000000
 	github.com/go-pkgz/repeater v1.1.3
 	github.com/go-pkgz/syncs v1.1.1
 	github.com/google/uuid v1.3.0

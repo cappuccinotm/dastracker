@@ -1,9 +1,8 @@
-package store
+package lib
 
 import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"os"
 	"testing"
 )
 
@@ -49,25 +48,4 @@ func TestVars_Equal(t *testing.T) {
 
 	assert.False(t, Vars(map[string]string{"var1": "val1"}).
 		Equal(map[string]string{"var2": "val2", "var1": "val1"}))
-}
-
-func TestVars_Evaluate(t *testing.T) {
-	v := Vars(map[string]string{
-		"var1": `{{ env "TESTVAR" }}`,
-		"var2": `{{ seq (keys .Update.Fields) }}`,
-		"var3": `{{ seq (values .Update.Fields) }}`,
-		"var4": `static text`,
-	})
-	err := os.Setenv("TESTVAR", "blah")
-	vs, err := v.Evaluate(Update{Content: Content{Fields: TicketFields{
-		"f1": "f1v",
-		"f2": "f2v",
-	}}})
-	assert.NoError(t, err)
-
-	// checking field-by-field, as mustn't rely on order of walking over map
-	assert.Equal(t, "blah", vs["var1"])
-	assert.Contains(t, []string{"f1,f2", "f2,f1"}, vs["var2"])
-	assert.Contains(t, []string{"f1v,f2v", "f2v,f1v"}, vs["var3"])
-	assert.Equal(t, "static text", vs["var4"])
 }

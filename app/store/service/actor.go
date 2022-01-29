@@ -86,7 +86,7 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 		s.Log.Printf("[DEBUG] running action %s with vars %+v", act.Name, act.With)
 
 		// TODO(semior): add support of detached calls
-		vars, err := act.With.Evaluate(upd)
+		vars, err := store.Evaluate(act.With, upd)
 		if err != nil {
 			return fmt.Errorf("evaluate variables for %q action: %w", act.Name, err)
 		}

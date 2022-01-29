@@ -2,6 +2,7 @@ package store
 
 import (
 	"strings"
+	"github.com/cappuccinotm/dastracker/lib"
 )
 
 // Sequence is a set of actions
@@ -17,16 +18,16 @@ type Job struct {
 // Trigger describes an action, which has to appear to trigger
 // a control flow.
 type Trigger struct {
-	Name    string `yaml:"name"`
-	Tracker string `yaml:"in"`
-	With    Vars   `yaml:"with"`
+	Name    string   `yaml:"name"`
+	Tracker string   `yaml:"in"`
+	With    lib.Vars `yaml:"with"`
 }
 
 // Action describes a single call to the tracker's method.
 type Action struct {
-	Name     string `yaml:"action"`
-	With     Vars   `yaml:"with"`
-	Detached bool   `yaml:"detached"` // means, that the action could be run asynchronously
+	Name     string   `yaml:"action"`
+	With     lib.Vars `yaml:"with"`
+	Detached bool     `yaml:"detached"` // means, that the action could be run asynchronously
 }
 
 // Path parses the action name to the tracker name and its method.

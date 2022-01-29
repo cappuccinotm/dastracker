@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"github.com/cappuccinotm/dastracker/lib"
 )
 
 func TestNewJSONRPC(t *testing.T) {
@@ -47,7 +48,7 @@ func TestJSONRPC_Call(t *testing.T) {
 					TrackerIDs: map[string]string{"tracker": "tracker-id"},
 					Content:    store.Content{Body: "body", Title: "title"},
 				},
-				Vars: store.Vars{},
+				Vars: lib.Vars{},
 			}, req)
 			return nil
 		},
@@ -60,7 +61,7 @@ func TestJSONRPC_Call(t *testing.T) {
 			TrackerIDs: map[string]string{"tracker": "tracker-id"},
 			Content:    store.Content{Body: "body", Title: "title"},
 		},
-		Vars: store.Vars{},
+		Vars: lib.Vars{},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, Response{Tracker: "remote-tracker", TaskID: "task-id"}, resp)

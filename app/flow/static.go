@@ -7,6 +7,7 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 	"gopkg.in/yaml.v3"
 	"os"
+	"github.com/cappuccinotm/dastracker/lib"
 )
 
 // Static reads the configuration for continuous task management from
@@ -24,9 +25,9 @@ type config struct {
 
 // Tracker describes a connection parameters to the certain tracker.
 type Tracker struct {
-	Name   string     `yaml:"name"`
-	Driver string     `yaml:"driver"`
-	With   store.Vars `yaml:"with"`
+	Name   string   `yaml:"name"`
+	Driver string   `yaml:"driver"`
+	With   lib.Vars `yaml:"with"`
 }
 
 // NewStatic makes new instance of Static flow provider.

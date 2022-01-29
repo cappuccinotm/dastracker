@@ -1,12 +1,8 @@
-package store
+package lib
 
 import (
-	"bytes"
-	"fmt"
-	"gopkg.in/yaml.v3"
-	"os"
 	"strings"
-	"text/template"
+	"gopkg.in/yaml.v3"
 )
 
 // Vars is an alias for a map with variable values.
@@ -46,32 +42,6 @@ func (v *Vars) Set(name, val string) {
 // value parsed in form of "string1,string2,string3"
 func (v Vars) List(s string) []string { return strings.Split(v.Get(s), ",") }
 
-type evTmpl struct{ Update Update }
-
-// Evaluate evaluates the final values of each variable.
-func (v Vars) Evaluate(upd Update) (Vars, error) {
-	if len(v) == 0 {
-		return nil, nil
-	}
-
-	res := Vars(map[string]string{})
-	for key, vv := range v {
-		tmpl, err := template.New("").Funcs(funcs).Parse(vv)
-		if err != nil {
-			return Vars{}, fmt.Errorf("parse %q variable: %w", key, err)
-		}
-
-		buf := &bytes.Buffer{}
-		if err = tmpl.Execute(buf, evTmpl{Update: upd}); err != nil {
-			return Vars{}, fmt.Errorf("evaluate the value of the %q variable: %w", key, err)
-		}
-
-		res[key] = buf.String()
-	}
-
-	return res, nil
-}
-
 // Equal returns true if two sets of variables represent the same one.
 // Note: two sets of variables with different Evaluated state are considered
 // to be equal, so the Evaluated state, in case if important, must be checked
@@ -89,26 +59,4 @@ func (v Vars) Equal(oth Vars) bool {
 	}
 
 	return true
-}
-
-// map of functions to parse from the config file
-var funcs = map[string]interface{}{
-	"env": os.Getenv,
-	"keys": func(s map[string]string) []string {
-		res := make([]string, 0, len(s))
-		for k := range s {
-			res = append(res, k)
-		}
-		return res
-	},
-	"values": func(s map[string]string) []string {
-		res := make([]string, 0, len(s))
-		for _, v := range s {
-			res = append(res, v)
-		}
-		return res
-	},
-	"seq": func(s []string) string {
-		return strings.Join(s, ",")
-	},
 }
