@@ -28,9 +28,9 @@ jobs:
   - name: print task update if task is received
     on: gh_task_updated
     do:
-      - if: "Update.Title.Contains(\"[PTT]\")" # means "Print To Terminal"
-        do:
-          - action: customrpc/Print
-            detached: true
-            with:
-              message: "Task \"{{.Update.Title}}\" has been updated and printed to the terminal."
+#      - if: "Update.Title.Contains(\"[PTT]\")" # means "Print To Terminal"
+#        do:
+      - action: customrpc/Print
+        detached: true
+        with:
+          message: "Task \"{{.Update.Title}}\" has been updated and printed to the terminal."

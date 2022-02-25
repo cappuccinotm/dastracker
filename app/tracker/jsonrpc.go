@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/webhook"
+	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/cappuccinotm/dastracker/pkg/rpcx"
 )
@@ -44,11 +45,18 @@ func (rpc *JSONRPC) Call(ctx context.Context, req Request) (Response, error) {
 		return Response{}, fmt.Errorf("parse method: %w", err)
 	}
 
-	var resp Response
-	if err := rpc.cl.Call(ctx, fmt.Sprintf("%s.%s", rpc.name, method), req, &resp); err != nil {
+	uri := fmt.Sprintf("%s.%s", rpc.name, method)
+
+	rpcReq, err := rpc.transformRPCRequest(req)
+	if err != nil {
+		return Response{}, fmt.Errorf("transform request: %w", err)
+	}
+
+	var resp lib.Response
+	if err := rpc.cl.Call(ctx, uri, rpcReq, &resp); err != nil {
 		return Response{}, fmt.Errorf("call remote method %s: %w", req.MethodURI, err)
 	}
-	return resp, nil
+	return rpc.transformRPCResponse(resp), nil
 }
 
 // Subscribe sends subscribe call to the remote JSONRPC server.
@@ -63,7 +71,7 @@ func (rpc *JSONRPC) Subscribe(ctx context.Context, req SubscribeReq) error {
 		return fmt.Errorf("make url from webhook %q: %w", wh.ID, err)
 	}
 
-	req.Vars.Set("_url", url)
+	req.Vars.Set(lib.URLKey, url)
 
 	var resp struct{}
 	if err := rpc.cl.Call(ctx, fmt.Sprintf("%s.Subscribe", rpc.name), req, &resp); err != nil {
@@ -100,4 +108,25 @@ func (rpc *JSONRPC) Listen(ctx context.Context, h Handler) error {
 	rpc.handler = h
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+func (rpc *JSONRPC) transformRPCRequest(req Request) (lib.Request, error) {
+	trackerName, _, err := req.ParseMethodURI()
+	if err != nil {
+		return lib.Request{}, fmt.Errorf("parse method uri: %w", err)
+	}
+	return lib.Request{
+		Ticket: lib.Ticket{
+			ID:     req.Ticket.ID,
+			TaskID: req.Ticket.TrackerIDs.Get(trackerName),
+			Title:  req.Ticket.Title,
+			Body:   req.Ticket.Body,
+			Fields: req.Ticket.Fields,
+		},
+		Vars: req.Vars,
+	}, nil
+}
+
+func (rpc *JSONRPC) transformRPCResponse(resp lib.Response) Response {
+	return Response{Tracker: rpc.name, TaskID: resp.TaskID}
 }

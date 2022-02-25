@@ -67,6 +67,14 @@ func (m TrackerIDs) Locators() []Locator {
 	return res
 }
 
+// Get returns the tracker ID for the given tracker name.
+func (m TrackerIDs) Get(name string) string {
+	if m == nil {
+		return ""
+	}
+	return m[name]
+}
+
 // Update describes a ticket update.
 type Update struct {
 	TriggerName  string  `json:"trigger_name"`
