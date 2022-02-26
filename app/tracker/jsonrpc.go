@@ -11,6 +11,8 @@ import (
 	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/cappuccinotm/dastracker/pkg/rpcx"
+	"github.com/go-pkgz/repeater/strategy"
+	"time"
 )
 
 // JSONRPC implements Interface in order to allow external services,
@@ -25,8 +27,18 @@ type JSONRPC struct {
 }
 
 // NewJSONRPC makes new instance of JSONRPC.
-func NewJSONRPC(cl rpcx.Client, name string, whm webhook.Interface) (*JSONRPC, error) {
-	svc := &JSONRPC{cl: cl, name: name, whm: whm}
+func NewJSONRPC(name string, whm webhook.Interface, vars lib.Vars) (*JSONRPC, error) {
+	dialer, err := rpcx.NewRedialer(
+		rpcx.JSONRPC(),
+		&strategy.FixedDelay{Repeats: 3, Delay: time.Second},
+		"tcp",
+		vars.Get("address"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("initialize new dialer for %s tracker: %w", name, err)
+	}
+
+	svc := &JSONRPC{cl: dialer, name: name, whm: whm}
 
 	if err := whm.Register(name, http.HandlerFunc(svc.whHandler)); err != nil {
 		return nil, fmt.Errorf("register webhooks handler: %w", err)
@@ -40,16 +52,11 @@ func (rpc *JSONRPC) Name() string { return rpc.name }
 
 // Call makes a call to the remote JSONRPC server with given Request.
 func (rpc *JSONRPC) Call(ctx context.Context, req Request) (Response, error) {
-	_, method, err := req.ParseMethodURI()
-	if err != nil {
-		return Response{}, fmt.Errorf("parse method: %w", err)
-	}
-
-	uri := fmt.Sprintf("%s.%s", rpc.name, method)
+	uri := fmt.Sprintf("%s.%s", rpc.name, req.Method)
 
 	var resp lib.Response
-	if err = rpc.cl.Call(ctx, uri, rpc.transformRPCRequest(req), &resp); err != nil {
-		return Response{}, fmt.Errorf("call remote method %s: %w", req.MethodURI, err)
+	if err := rpc.cl.Call(ctx, uri, rpc.transformRPCRequest(req), &resp); err != nil {
+		return Response{}, fmt.Errorf("call remote method %s: %w", req.Method, err)
 	}
 	return rpc.transformRPCResponse(resp), nil
 }

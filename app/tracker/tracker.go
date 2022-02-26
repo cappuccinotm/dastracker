@@ -2,9 +2,7 @@ package tracker
 
 import (
 	"context"
-	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
-	"strings"
 	"github.com/cappuccinotm/dastracker/lib"
 )
 
@@ -33,21 +31,9 @@ type Interface interface {
 
 // Request describes a requests to tracker's action.
 type Request struct {
-	MethodURI string
-	Ticket    store.Ticket
-	Vars      lib.Vars
-}
-
-// ParseMethodURI parses the MethodURI field of the request, assuming that
-// the method is composed in form of "tracker/method". If the assumption does
-// not hold, it returns empty strings instead.
-func (r Request) ParseMethodURI() (tracker, method string, err error) {
-	dividerIdx := strings.IndexRune(r.MethodURI, '/')
-	if dividerIdx == -1 || dividerIdx == len(r.MethodURI)-1 || dividerIdx == 0 {
-		return "", "", errs.ErrMethodParseFailed(r.MethodURI)
-	}
-
-	return r.MethodURI[:dividerIdx], r.MethodURI[dividerIdx+1:], nil
+	Method string
+	Ticket store.Ticket
+	Vars   lib.Vars
 }
 
 // Response describes possible return values of the Interface.Call

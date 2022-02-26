@@ -6,24 +6,31 @@ import (
 	"encoding/json"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/webhook"
+	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/cappuccinotm/dastracker/pkg/rpcx"
 	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
-	"github.com/cappuccinotm/dastracker/lib"
 )
 
 func TestNewJSONRPC(t *testing.T) {
-	_, err := NewJSONRPC(rpcx.Client(nil), "jsonrpc", &webhook.InterfaceMock{
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer ts.Close()
+
+	u, err := url.Parse(ts.URL)
+	require.NoError(t, err)
+
+	_, err = NewJSONRPC("jsonrpc", &webhook.InterfaceMock{
 		RegisterFunc: func(name string, handler http.Handler) error {
 			assert.Equal(t, "jsonrpc", name)
 			assert.NotNil(t, handler)
 			return nil
 		},
-	})
+	}, lib.Vars{"address": u.Host})
 	require.NoError(t, err)
 }
 
@@ -34,19 +41,19 @@ func TestJSONRPC_Name(t *testing.T) {
 func TestJSONRPC_Call(t *testing.T) {
 	svc := &JSONRPC{name: "jrpc", cl: &rpcx.ClientMock{
 		CallFunc: func(ctx context.Context, serviceMethod string, args, reply interface{}) error {
-			resp, ok := reply.(*Response)
+			resp, ok := reply.(*lib.Response)
 			assert.True(t, ok)
-			req, ok := args.(Request)
+			req, ok := args.(lib.Request)
 			assert.True(t, ok)
 
 			assert.Equal(t, "jrpc.some-method", serviceMethod)
-			*resp = Response{Tracker: "remote-tracker", TaskID: "task-id"}
-			assert.Equal(t, Request{
-				MethodURI: "some-tracker/some-method",
-				Ticket: store.Ticket{
-					ID:         "ticket-id",
-					TrackerIDs: map[string]string{"tracker": "tracker-id"},
-					Content:    store.Content{Body: "body", Title: "title"},
+			*resp = lib.Response{TaskID: "task-id"}
+			assert.Equal(t, lib.Request{
+				Ticket: lib.Ticket{
+					ID:     "ticket-id",
+					TaskID: "tracker-id",
+					Body:   "body",
+					Title:  "title",
 				},
 				Vars: lib.Vars{},
 			}, req)
@@ -55,16 +62,16 @@ func TestJSONRPC_Call(t *testing.T) {
 	}}
 
 	resp, err := svc.Call(context.Background(), Request{
-		MethodURI: "some-tracker/some-method",
+		Method: "some-method",
 		Ticket: store.Ticket{
 			ID:         "ticket-id",
-			TrackerIDs: map[string]string{"tracker": "tracker-id"},
+			TrackerIDs: map[string]string{"jrpc": "tracker-id"},
 			Content:    store.Content{Body: "body", Title: "title"},
 		},
 		Vars: lib.Vars{},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, Response{Tracker: "remote-tracker", TaskID: "task-id"}, resp)
+	assert.Equal(t, Response{Tracker: "jrpc", TaskID: "task-id"}, resp)
 }
 
 func TestJSONRPC_Subscribe(t *testing.T) {

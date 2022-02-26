@@ -7,7 +7,6 @@ import (
 	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
-	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/google/uuid"
 	bolt "go.etcd.io/bbolt"
 )
@@ -23,11 +22,10 @@ const (
 type Tickets struct {
 	fileName string
 	db       *bolt.DB
-	log      logx.Logger
 }
 
 // NewTickets creates buckets and initial data processing
-func NewTickets(fileName string, options bolt.Options, log logx.Logger) (*Tickets, error) {
+func NewTickets(fileName string, options bolt.Options) (*Tickets, error) {
 	db, err := bolt.Open(fileName, 0600, &options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make boltdb for %s: %w", fileName, err)
@@ -48,7 +46,6 @@ func NewTickets(fileName string, options bolt.Options, log logx.Logger) (*Ticket
 		return nil, fmt.Errorf("failed to initialize boltdb buckets for %s: %w", fileName, err)
 	}
 
-	log.Printf("[INFO] tickets BoltDB instantiated")
 	return &Tickets{db: db, fileName: fileName}, nil
 }
 

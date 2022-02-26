@@ -11,6 +11,8 @@ import (
 	"github.com/cappuccinotm/dastracker/app/tracker"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/go-pkgz/syncs"
+	"golang.org/x/sync/errgroup"
+	"strings"
 	"time"
 )
 
@@ -21,7 +23,7 @@ const maxConcurrentUpdates = 15
 // Actor receives updates from the Tracker and follows the calls the actions in the
 // wrapped tracker according to the job provided by the Flow.
 type Actor struct {
-	Tracker       tracker.Interface
+	Trackers      map[string]tracker.Interface
 	TicketsStore  engine.Tickets
 	Flow          flow.Interface
 	Log           logx.Logger
@@ -32,11 +34,25 @@ type Actor struct {
 // Always returns non-nil error.
 // Blocking call.
 func (s *Actor) Listen(ctx context.Context) error {
-	if err := s.Tracker.Listen(ctx, tracker.HandlerFunc(s.handleUpdate)); err != nil {
-		return fmt.Errorf("updates listener stopped, reason: %w", err)
+	ewg, ctx := errgroup.WithContext(ctx)
+
+	for name, trk := range s.Trackers {
+		trk := trk
+		name := name
+		ewg.Go(func() error {
+			s.Log.Printf("[INFO] starting listener for %s", name)
+
+			if err := trk.Listen(ctx, tracker.HandlerFunc(s.handleUpdate)); err != nil {
+				return fmt.Errorf("listener for tracker %q stopped, reason: %w", name, err)
+			}
+
+			return nil
+		})
 	}
 
-	s.Log.Printf("[INFO] started actor listener with tracker %s", s.Tracker.Name())
+	if err := ewg.Wait(); err != nil {
+		return fmt.Errorf("run stopped, reason: %w", err)
+	}
 
 	return nil
 }
@@ -91,7 +107,13 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 			return fmt.Errorf("evaluate variables for %q action: %w", act.Name, err)
 		}
 
-		resp, err := s.Tracker.Call(ctx, tracker.Request{MethodURI: act.Name, Vars: vars, Ticket: ticket})
+		trkName, method := parseMethodURI(act.Name)
+
+		resp, err := s.Trackers[trkName].Call(ctx, tracker.Request{
+			Method: method,
+			Ticket: ticket,
+			Vars:   vars,
+		})
 		if err != nil {
 			return fmt.Errorf("call to %s: %w", act.Name, err)
 		}
@@ -112,4 +134,9 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 	}
 
 	return nil
+}
+
+func parseMethodURI(s string) (tracker, method string) {
+	dividerIdx := strings.IndexRune(s, '/')
+	return s[:dividerIdx], s[dividerIdx+1:]
 }

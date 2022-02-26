@@ -16,7 +16,7 @@ import (
 )
 
 var ghSupportedActions = map[string]func(*Github, context.Context, Request) (Response, error){
-	"update_or_create_issue": (*Github).updateOrCreateIssue,
+	"UpdateOrCreateIssue": (*Github).updateOrCreateIssue,
 }
 
 // Github implements Interface over the github issues tracker.
@@ -30,29 +30,28 @@ type Github struct {
 	handler Handler
 }
 
-func NewGithub(name string, whm webhook.Interface) (*Github, error) {
+// NewGithub makes new instance of Github tracker.
+func NewGithub(name string, whm webhook.Interface, vars lib.Vars) (*Github, error) {
 	svc := &Github{}
 
 	if err := whm.Register(name, http.HandlerFunc(svc.whHandler)); err != nil {
 		return nil, fmt.Errorf("register webhooks handler: %w", err)
 	}
 
-	// todo
+	svc.repo.Owner = vars.Get("owner")
+	svc.repo.Name = vars.Get("name")
 
 	return svc, nil
 }
 
+// Name returns the name of the tracker.
 func (g *Github) Name() string { return fmt.Sprintf("Github[%s]", g.name) }
 
+// Call handles the incoming request.
 func (g *Github) Call(ctx context.Context, req Request) (Response, error) {
-	_, method, err := req.ParseMethodURI()
-	if err != nil {
-		return Response{}, fmt.Errorf("parse URI %q: %w", req.MethodURI, err)
-	}
-
-	fn, supported := ghSupportedActions[method]
+	fn, supported := ghSupportedActions[req.Method]
 	if !supported {
-		return Response{}, errs.ErrActionNotSupported(method)
+		return Response{}, errs.ErrActionNotSupported(req.Method)
 	}
 
 	return fn(g, ctx, req)

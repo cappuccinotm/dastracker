@@ -27,12 +27,14 @@ func TestActor_Listen(t *testing.T) {
 	var handleUpdate tracker.Handler
 	hlock := &mutex{}
 	a := &Actor{
-		Tracker: &tracker.InterfaceMock{
-			ListenFunc: func(ctx context.Context, h tracker.Handler) error {
-				listenCalled.Done()
-				hlock.WithLock(func() { handleUpdate = h })
-				<-ctx.Done()
-				return ctx.Err()
+		Trackers: map[string]tracker.Interface{
+			"blah": &tracker.InterfaceMock{
+				ListenFunc: func(ctx context.Context, h tracker.Handler) error {
+					listenCalled.Done()
+					hlock.WithLock(func() { handleUpdate = h })
+					<-ctx.Done()
+					return ctx.Err()
+				},
 			},
 		},
 		Log: log.Default(),
@@ -80,7 +82,7 @@ func TestActor_runJob(t *testing.T) {
 			},
 		}
 		expectedTrackerReq := tracker.Request{
-			MethodURI: "tracker/create-or-update",
+			Method: "create-or-update",
 			Ticket: store.Ticket{
 				ID: "ticket-id",
 				TrackerIDs: map[string]string{
@@ -118,10 +120,12 @@ func TestActor_runJob(t *testing.T) {
 					return nil
 				},
 			},
-			Tracker: &tracker.InterfaceMock{
-				CallFunc: func(_ context.Context, req tracker.Request) (tracker.Response, error) {
-					assert.Equal(t, expectedTrackerReq, req)
-					return tracker.Response{Tracker: "new-tracker", TaskID: "new-task-id"}, nil
+			Trackers: map[string]tracker.Interface{
+				"tracker": &tracker.InterfaceMock{
+					CallFunc: func(_ context.Context, req tracker.Request) (tracker.Response, error) {
+						assert.Equal(t, expectedTrackerReq, req)
+						return tracker.Response{Tracker: "new-tracker", TaskID: "new-task-id"}, nil
+					},
 				},
 			},
 		}
@@ -161,7 +165,7 @@ func TestActor_runJob(t *testing.T) {
 			},
 		}
 		expectedTrackerReq := tracker.Request{
-			MethodURI: "tracker/create-or-update",
+			Method: "create-or-update",
 			Ticket: store.Ticket{
 				TrackerIDs: map[string]string{"tracker": "task-id"},
 				Content: store.Content{
@@ -195,10 +199,12 @@ func TestActor_runJob(t *testing.T) {
 					return "ticket-id", nil
 				},
 			},
-			Tracker: &tracker.InterfaceMock{
-				CallFunc: func(_ context.Context, req tracker.Request) (tracker.Response, error) {
-					assert.Equal(t, expectedTrackerReq, req)
-					return tracker.Response{Tracker: "new-tracker", TaskID: "new-task-id"}, nil
+			Trackers: map[string]tracker.Interface{
+				"tracker": &tracker.InterfaceMock{
+					CallFunc: func(_ context.Context, req tracker.Request) (tracker.Response, error) {
+						assert.Equal(t, expectedTrackerReq, req)
+						return tracker.Response{Tracker: "new-tracker", TaskID: "new-task-id"}, nil
+					},
 				},
 			},
 		}

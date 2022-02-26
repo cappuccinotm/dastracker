@@ -10,8 +10,6 @@ import (
 	"github.com/cappuccinotm/dastracker/app/tracker"
 	"github.com/cappuccinotm/dastracker/app/webhook"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
-	"github.com/cappuccinotm/dastracker/pkg/rpcx"
-	"github.com/go-pkgz/repeater/strategy"
 	"github.com/gorilla/mux"
 	bolt "go.etcd.io/bbolt"
 	"log"
@@ -51,17 +49,12 @@ func (r Run) Execute(_ []string) error {
 		return fmt.Errorf("prepare logger: %w", err)
 	}
 
-	ticketsStore, err := r.prepareTicketsStore(logger)
+	ticketsStore, err := r.prepareTicketsStore()
 	if err != nil {
 		return fmt.Errorf("initialize tickets store: %w", err)
 	}
 
-	webhooksStore, err := r.prepareWebhooksStore(logger)
-	if err != nil {
-		return fmt.Errorf("initialize webhooks store: %w", err)
-	}
-
-	webhooksManager, err := r.prepareWebhookManager(webhooksStore, logger)
+	webhooksManager, err := r.prepareWebhookManager(logger)
 	if err != nil {
 		return fmt.Errorf("initialize webhooks manager: %w", err)
 	}
@@ -71,13 +64,8 @@ func (r Run) Execute(_ []string) error {
 		return fmt.Errorf("prepare trackers: %w", err)
 	}
 
-	dispatcher, err := r.prepareDispatcher(trackers, logger)
-	if err != nil {
-		return fmt.Errorf("prepare dispatcher: %w", err)
-	}
-
 	actor := &service.Actor{
-		Tracker:       dispatcher,
+		Trackers:      trackers,
 		TicketsStore:  ticketsStore,
 		Flow:          flowStore,
 		Log:           logger,
@@ -104,36 +92,31 @@ func (r Run) prepareFlowStore() (flow.Interface, error) {
 	return flow.NewStatic(r.ConfLocation)
 }
 
-func (r Run) prepareDispatcher(trackers []tracker.Interface, logger logx.Logger) (tracker.Interface, error) {
-	return tracker.NewDispatcher(logger, trackers)
-}
+func (r Run) prepareWebhookManager(logger logx.Logger) (webhook.Interface, error) {
+	webhooksStore, err := r.prepareWebhooksStore()
+	if err != nil {
+		return nil, fmt.Errorf("initialize webhooks store: %w", err)
+	}
 
-func (r Run) prepareWebhookManager(webhooksStore engine.Webhooks, logger logx.Logger) (webhook.Interface, error) {
 	return webhook.NewManager(r.Webhook.BaseURL, mux.NewRouter(), webhooksStore, logger), nil
 }
 
-func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) ([]tracker.Interface, error) {
+func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) (map[string]tracker.Interface, error) {
 	trackers, err := flowStore.GetTrackers(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("get trackers configs: %w", err)
 	}
 
-	res := make([]tracker.Interface, len(trackers))
-	for i, trk := range trackers {
+	res := map[string]tracker.Interface{}
+	for _, trk := range trackers {
 		switch trk.Driver {
 		case "rpc":
-			dialer, err := rpcx.NewRedialer(
-				rpcx.JSONRPC(),
-				&strategy.FixedDelay{Repeats: 3, Delay: time.Second},
-				"tcp",
-				trk.With.Get("address"),
-			)
-			if err != nil {
-				return nil, fmt.Errorf("initialize new dialer for %s tracker: %w", trk.Name, err)
-			}
-
-			if res[i], err = tracker.NewJSONRPC(dialer, trk.Name, whm); err != nil {
+			if res[trk.Name], err = tracker.NewJSONRPC(trk.Name, whm, trk.With); err != nil {
 				return nil, fmt.Errorf("initialize jsonrpc tracker %s: %w", trk.Name, err)
+			}
+		case "github":
+			if res[trk.Name], err = tracker.NewGithub(trk.Name, whm, trk.With); err != nil {
+				return nil, fmt.Errorf("initialize github tracker %s: %w", trk.Name, err)
 			}
 		default:
 			return nil, fmt.Errorf("unsupported driver: %s", trk.Driver)
@@ -143,14 +126,10 @@ func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) ([
 	return res, nil
 }
 
-func (r Run) prepareWebhooksStore(log logx.Logger) (engine.Webhooks, error) {
+func (r Run) prepareWebhooksStore() (engine.Webhooks, error) {
 	switch r.Store.Type {
 	case "bolt":
-		webhooks, err := boltEngs.NewWebhook(
-			path.Join(r.Store.Bolt.Path, "webhooks.db"),
-			bolt.Options{Timeout: r.Store.Bolt.Timeout},
-			log,
-		)
+		webhooks, err := boltEngs.NewWebhook(path.Join(r.Store.Bolt.Path, "webhooks.db"), bolt.Options{Timeout: r.Store.Bolt.Timeout})
 		if err != nil {
 			return nil, fmt.Errorf("initialize bolt store: %w", err)
 		}
@@ -160,14 +139,10 @@ func (r Run) prepareWebhooksStore(log logx.Logger) (engine.Webhooks, error) {
 	}
 }
 
-func (r Run) prepareTicketsStore(log logx.Logger) (engine.Tickets, error) {
+func (r Run) prepareTicketsStore() (engine.Tickets, error) {
 	switch r.Store.Type {
 	case "bolt":
-		tickets, err := boltEngs.NewTickets(
-			path.Join(r.Store.Bolt.Path, "tickets.db"),
-			bolt.Options{Timeout: r.Store.Bolt.Timeout},
-			log,
-		)
+		tickets, err := boltEngs.NewTickets(path.Join(r.Store.Bolt.Path, "tickets.db"), bolt.Options{Timeout: r.Store.Bolt.Timeout})
 		if err != nil {
 			return nil, fmt.Errorf("initialize bolt store: %w", err)
 		}

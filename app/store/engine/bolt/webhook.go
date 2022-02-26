@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/google/uuid"
 	bolt "go.etcd.io/bbolt"
 	"time"
@@ -23,11 +22,10 @@ const (
 type Webhooks struct {
 	fileName string
 	db       *bolt.DB
-	log      logx.Logger
 }
 
 // NewWebhook creates buckets and initial data processing
-func NewWebhook(fileName string, options bolt.Options, log logx.Logger) (*Webhooks, error) {
+func NewWebhook(fileName string, options bolt.Options) (*Webhooks, error) {
 	db, err := bolt.Open(fileName, 0600, &options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make boltdb for %s: %w", fileName, err)
@@ -48,7 +46,6 @@ func NewWebhook(fileName string, options bolt.Options, log logx.Logger) (*Webhoo
 		return nil, fmt.Errorf("failed to initialize boltdb buckets for %s: %w", fileName, err)
 	}
 
-	log.Printf("[INFO] webhooks BoltDB instantiated")
 	return &Webhooks{db: db, fileName: fileName}, nil
 }
 
