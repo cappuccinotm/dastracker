@@ -9,10 +9,12 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/webhook"
 	"github.com/cappuccinotm/dastracker/lib"
+	"github.com/cappuccinotm/dastracker/pkg/httpx"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 var ghSupportedActions = map[string]func(*Github, context.Context, Request) (Response, error){
@@ -40,6 +42,14 @@ func NewGithub(name string, whm webhook.Interface, vars lib.Vars) (*Github, erro
 
 	svc.repo.Owner = vars.Get("owner")
 	svc.repo.Name = vars.Get("name")
+
+	svc.cl = &http.Client{
+		Transport: httpx.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			r.SetBasicAuth(vars.Get("user"), vars.Get("access_token"))
+			return http.DefaultTransport.RoundTrip(r)
+		}),
+		Timeout: 5 * time.Second,
+	}
 
 	return svc, nil
 }
