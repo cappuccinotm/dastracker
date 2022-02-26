@@ -20,11 +20,14 @@ var _ Interface = &InterfaceMock{}
 //
 //         // make and configure a mocked Interface
 //         mockedInterface := &InterfaceMock{
-//             GetSubscribedJobsFunc: func(ctx context.Context, triggerName string) ([]store.Job, error) {
-// 	               panic("mock out the GetSubscribedJobs method")
+//             ListSubscribedJobsFunc: func(ctx context.Context, triggerName string) ([]store.Job, error) {
+// 	               panic("mock out the ListSubscribedJobs method")
 //             },
-//             GetTrackersFunc: func(in1 context.Context) ([]Tracker, error) {
-// 	               panic("mock out the GetTrackers method")
+//             ListTrackersFunc: func(in1 context.Context) ([]Tracker, error) {
+// 	               panic("mock out the ListTrackers method")
+//             },
+//             ListTriggersFunc: func(in1 context.Context) ([]store.Trigger, error) {
+// 	               panic("mock out the ListTriggers method")
 //             },
 //         }
 //
@@ -33,35 +36,44 @@ var _ Interface = &InterfaceMock{}
 //
 //     }
 type InterfaceMock struct {
-	// GetSubscribedJobsFunc mocks the GetSubscribedJobs method.
-	GetSubscribedJobsFunc func(ctx context.Context, triggerName string) ([]store.Job, error)
+	// ListSubscribedJobsFunc mocks the ListSubscribedJobs method.
+	ListSubscribedJobsFunc func(ctx context.Context, triggerName string) ([]store.Job, error)
 
-	// GetTrackersFunc mocks the GetTrackers method.
-	GetTrackersFunc func(in1 context.Context) ([]Tracker, error)
+	// ListTrackersFunc mocks the ListTrackers method.
+	ListTrackersFunc func(in1 context.Context) ([]Tracker, error)
+
+	// ListTriggersFunc mocks the ListTriggers method.
+	ListTriggersFunc func(in1 context.Context) ([]store.Trigger, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// GetSubscribedJobs holds details about calls to the GetSubscribedJobs method.
-		GetSubscribedJobs []struct {
+		// ListSubscribedJobs holds details about calls to the ListSubscribedJobs method.
+		ListSubscribedJobs []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// TriggerName is the triggerName argument value.
 			TriggerName string
 		}
-		// GetTrackers holds details about calls to the GetTrackers method.
-		GetTrackers []struct {
+		// ListTrackers holds details about calls to the ListTrackers method.
+		ListTrackers []struct {
+			// In1 is the in1 argument value.
+			In1 context.Context
+		}
+		// ListTriggers holds details about calls to the ListTriggers method.
+		ListTriggers []struct {
 			// In1 is the in1 argument value.
 			In1 context.Context
 		}
 	}
-	lockGetSubscribedJobs sync.RWMutex
-	lockGetTrackers       sync.RWMutex
+	lockListSubscribedJobs sync.RWMutex
+	lockListTrackers       sync.RWMutex
+	lockListTriggers       sync.RWMutex
 }
 
-// GetSubscribedJobs calls GetSubscribedJobsFunc.
-func (mock *InterfaceMock) GetSubscribedJobs(ctx context.Context, triggerName string) ([]store.Job, error) {
-	if mock.GetSubscribedJobsFunc == nil {
-		panic("InterfaceMock.GetSubscribedJobsFunc: method is nil but Interface.GetSubscribedJobs was just called")
+// ListSubscribedJobs calls ListSubscribedJobsFunc.
+func (mock *InterfaceMock) ListSubscribedJobs(ctx context.Context, triggerName string) ([]store.Job, error) {
+	if mock.ListSubscribedJobsFunc == nil {
+		panic("InterfaceMock.ListSubscribedJobsFunc: method is nil but Interface.ListSubscribedJobs was just called")
 	}
 	callInfo := struct {
 		Ctx         context.Context
@@ -70,16 +82,16 @@ func (mock *InterfaceMock) GetSubscribedJobs(ctx context.Context, triggerName st
 		Ctx:         ctx,
 		TriggerName: triggerName,
 	}
-	mock.lockGetSubscribedJobs.Lock()
-	mock.calls.GetSubscribedJobs = append(mock.calls.GetSubscribedJobs, callInfo)
-	mock.lockGetSubscribedJobs.Unlock()
-	return mock.GetSubscribedJobsFunc(ctx, triggerName)
+	mock.lockListSubscribedJobs.Lock()
+	mock.calls.ListSubscribedJobs = append(mock.calls.ListSubscribedJobs, callInfo)
+	mock.lockListSubscribedJobs.Unlock()
+	return mock.ListSubscribedJobsFunc(ctx, triggerName)
 }
 
-// GetSubscribedJobsCalls gets all the calls that were made to GetSubscribedJobs.
+// ListSubscribedJobsCalls gets all the calls that were made to ListSubscribedJobs.
 // Check the length with:
-//     len(mockedInterface.GetSubscribedJobsCalls())
-func (mock *InterfaceMock) GetSubscribedJobsCalls() []struct {
+//     len(mockedInterface.ListSubscribedJobsCalls())
+func (mock *InterfaceMock) ListSubscribedJobsCalls() []struct {
 	Ctx         context.Context
 	TriggerName string
 } {
@@ -87,39 +99,70 @@ func (mock *InterfaceMock) GetSubscribedJobsCalls() []struct {
 		Ctx         context.Context
 		TriggerName string
 	}
-	mock.lockGetSubscribedJobs.RLock()
-	calls = mock.calls.GetSubscribedJobs
-	mock.lockGetSubscribedJobs.RUnlock()
+	mock.lockListSubscribedJobs.RLock()
+	calls = mock.calls.ListSubscribedJobs
+	mock.lockListSubscribedJobs.RUnlock()
 	return calls
 }
 
-// GetTrackers calls GetTrackersFunc.
-func (mock *InterfaceMock) GetTrackers(in1 context.Context) ([]Tracker, error) {
-	if mock.GetTrackersFunc == nil {
-		panic("InterfaceMock.GetTrackersFunc: method is nil but Interface.GetTrackers was just called")
+// ListTrackers calls ListTrackersFunc.
+func (mock *InterfaceMock) ListTrackers(in1 context.Context) ([]Tracker, error) {
+	if mock.ListTrackersFunc == nil {
+		panic("InterfaceMock.ListTrackersFunc: method is nil but Interface.ListTrackers was just called")
 	}
 	callInfo := struct {
 		In1 context.Context
 	}{
 		In1: in1,
 	}
-	mock.lockGetTrackers.Lock()
-	mock.calls.GetTrackers = append(mock.calls.GetTrackers, callInfo)
-	mock.lockGetTrackers.Unlock()
-	return mock.GetTrackersFunc(in1)
+	mock.lockListTrackers.Lock()
+	mock.calls.ListTrackers = append(mock.calls.ListTrackers, callInfo)
+	mock.lockListTrackers.Unlock()
+	return mock.ListTrackersFunc(in1)
 }
 
-// GetTrackersCalls gets all the calls that were made to GetTrackers.
+// ListTrackersCalls gets all the calls that were made to ListTrackers.
 // Check the length with:
-//     len(mockedInterface.GetTrackersCalls())
-func (mock *InterfaceMock) GetTrackersCalls() []struct {
+//     len(mockedInterface.ListTrackersCalls())
+func (mock *InterfaceMock) ListTrackersCalls() []struct {
 	In1 context.Context
 } {
 	var calls []struct {
 		In1 context.Context
 	}
-	mock.lockGetTrackers.RLock()
-	calls = mock.calls.GetTrackers
-	mock.lockGetTrackers.RUnlock()
+	mock.lockListTrackers.RLock()
+	calls = mock.calls.ListTrackers
+	mock.lockListTrackers.RUnlock()
+	return calls
+}
+
+// ListTriggers calls ListTriggersFunc.
+func (mock *InterfaceMock) ListTriggers(in1 context.Context) ([]store.Trigger, error) {
+	if mock.ListTriggersFunc == nil {
+		panic("InterfaceMock.ListTriggersFunc: method is nil but Interface.ListTriggers was just called")
+	}
+	callInfo := struct {
+		In1 context.Context
+	}{
+		In1: in1,
+	}
+	mock.lockListTriggers.Lock()
+	mock.calls.ListTriggers = append(mock.calls.ListTriggers, callInfo)
+	mock.lockListTriggers.Unlock()
+	return mock.ListTriggersFunc(in1)
+}
+
+// ListTriggersCalls gets all the calls that were made to ListTriggers.
+// Check the length with:
+//     len(mockedInterface.ListTriggersCalls())
+func (mock *InterfaceMock) ListTriggersCalls() []struct {
+	In1 context.Context
+} {
+	var calls []struct {
+		In1 context.Context
+	}
+	mock.lockListTriggers.RLock()
+	calls = mock.calls.ListTriggers
+	mock.lockListTriggers.RUnlock()
 	return calls
 }

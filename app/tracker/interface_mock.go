@@ -30,6 +30,9 @@ var _ Interface = &InterfaceMock{}
 //             SubscribeFunc: func(ctx context.Context, req SubscribeReq) error {
 // 	               panic("mock out the Subscribe method")
 //             },
+//             UnsubscribeFunc: func(ctx context.Context, req SubscribeReq) error {
+// 	               panic("mock out the Unsubscribe method")
+//             },
 //         }
 //
 //         // use mockedInterface in code that requires Interface
@@ -48,6 +51,9 @@ type InterfaceMock struct {
 
 	// SubscribeFunc mocks the Subscribe method.
 	SubscribeFunc func(ctx context.Context, req SubscribeReq) error
+
+	// UnsubscribeFunc mocks the Unsubscribe method.
+	UnsubscribeFunc func(ctx context.Context, req SubscribeReq) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -75,11 +81,19 @@ type InterfaceMock struct {
 			// Req is the req argument value.
 			Req SubscribeReq
 		}
+		// Unsubscribe holds details about calls to the Unsubscribe method.
+		Unsubscribe []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Req is the req argument value.
+			Req SubscribeReq
+		}
 	}
-	lockCall      sync.RWMutex
-	lockListen    sync.RWMutex
-	lockName      sync.RWMutex
-	lockSubscribe sync.RWMutex
+	lockCall        sync.RWMutex
+	lockListen      sync.RWMutex
+	lockName        sync.RWMutex
+	lockSubscribe   sync.RWMutex
+	lockUnsubscribe sync.RWMutex
 }
 
 // Call calls CallFunc.
@@ -210,5 +224,40 @@ func (mock *InterfaceMock) SubscribeCalls() []struct {
 	mock.lockSubscribe.RLock()
 	calls = mock.calls.Subscribe
 	mock.lockSubscribe.RUnlock()
+	return calls
+}
+
+// Unsubscribe calls UnsubscribeFunc.
+func (mock *InterfaceMock) Unsubscribe(ctx context.Context, req SubscribeReq) error {
+	if mock.UnsubscribeFunc == nil {
+		panic("InterfaceMock.UnsubscribeFunc: method is nil but Interface.Unsubscribe was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Req SubscribeReq
+	}{
+		Ctx: ctx,
+		Req: req,
+	}
+	mock.lockUnsubscribe.Lock()
+	mock.calls.Unsubscribe = append(mock.calls.Unsubscribe, callInfo)
+	mock.lockUnsubscribe.Unlock()
+	return mock.UnsubscribeFunc(ctx, req)
+}
+
+// UnsubscribeCalls gets all the calls that were made to Unsubscribe.
+// Check the length with:
+//     len(mockedInterface.UnsubscribeCalls())
+func (mock *InterfaceMock) UnsubscribeCalls() []struct {
+	Ctx context.Context
+	Req SubscribeReq
+} {
+	var calls []struct {
+		Ctx context.Context
+		Req SubscribeReq
+	}
+	mock.lockUnsubscribe.RLock()
+	calls = mock.calls.Unsubscribe
+	mock.lockUnsubscribe.RUnlock()
 	return calls
 }

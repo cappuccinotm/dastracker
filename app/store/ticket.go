@@ -28,7 +28,7 @@ type Ticket struct {
 func (t *Ticket) Patch(upd Update) {
 	t.Content = upd.Content
 	if !upd.ReceivedFrom.Empty() {
-		t.TrackerIDs.Set(upd.ReceivedFrom.Tracker, upd.ReceivedFrom.TaskID)
+		t.TrackerIDs.Set(upd.ReceivedFrom.Tracker, upd.ReceivedFrom.ID)
 	}
 }
 
@@ -62,7 +62,7 @@ func (m *TrackerIDs) Set(trackerName, taskID string) {
 func (m TrackerIDs) Locators() []Locator {
 	res := make([]Locator, 0, len(m))
 	for name, id := range m {
-		res = append(res, Locator{Tracker: name, TaskID: id})
+		res = append(res, Locator{Tracker: name, ID: id})
 	}
 	return res
 }
@@ -87,11 +87,11 @@ type Update struct {
 // Locator describes the path to the entity in the specific tracker.
 type Locator struct {
 	Tracker string `json:"tracker"`
-	TaskID  string `json:"task_id"`
+	ID      string `json:"id"`
 }
 
 // String returns the location of the task in string representation.
-func (l Locator) String() string { return l.Tracker + "/" + l.TaskID }
+func (l Locator) String() string { return l.Tracker + "/" + l.ID }
 
 // Empty returns true if the locator is not specified.
-func (l Locator) Empty() bool { return l.Tracker == "" || l.TaskID == "" }
+func (l Locator) Empty() bool { return l.Tracker == "" || l.ID == "" }

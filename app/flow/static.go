@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
+	"github.com/cappuccinotm/dastracker/lib"
 	"gopkg.in/yaml.v3"
 	"os"
-	"github.com/cappuccinotm/dastracker/lib"
 )
 
 // Static reads the configuration for continuous task management from
@@ -56,12 +56,17 @@ func NewStatic(path string) (*Static, error) {
 	return svc, nil
 }
 
-// GetTrackers returns the list of registered trackers with their configurations.
-func (s *Static) GetTrackers(_ context.Context) ([]Tracker, error) { return s.Trackers, nil }
+// ListTriggers returns the list of registered triggers with their variables.
+func (s *Static) ListTriggers(_ context.Context) ([]store.Trigger, error) {
+	return s.config.Triggers, nil
+}
 
-// GetSubscribedJobs returns the jobs attached to the trigger
+// ListTrackers returns the list of registered trackers with their configurations.
+func (s *Static) ListTrackers(_ context.Context) ([]Tracker, error) { return s.Trackers, nil }
+
+// ListSubscribedJobs returns the jobs attached to the trigger
 // by the name of the trigger.
-func (s *Static) GetSubscribedJobs(_ context.Context, triggerName string) ([]store.Job, error) {
+func (s *Static) ListSubscribedJobs(_ context.Context, triggerName string) ([]store.Job, error) {
 	jobs, triggerPresent := s.subscriptions[triggerName]
 	if !triggerPresent {
 		return nil, fmt.Errorf("trigger was not found: %w", errs.ErrNotFound)
@@ -91,7 +96,10 @@ func (c config) validate() error {
 		}
 
 		for _, act := range job.Actions {
-			tracker, _ := act.Path()
+			tracker, _, err := act.Path()
+			if err != nil {
+				return fmt.Errorf("invalid action path: %w", err)
+			}
 			if _, trackerPresent := trackers[tracker]; !trackerPresent {
 				return fmt.Errorf("tracker %q, referred by action %q in job %q, is not registered: %w",
 					tracker, act.Name, job.Name, errs.ErrNotFound)

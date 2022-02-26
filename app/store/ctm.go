@@ -1,8 +1,9 @@
 package store
 
 import (
-	"strings"
+	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/lib"
+	"strings"
 )
 
 // Sequence is a set of actions
@@ -31,11 +32,11 @@ type Action struct {
 }
 
 // Path parses the action name to the tracker name and its method.
-func (a Action) Path() (tracker, method string) {
+func (a Action) Path() (tracker, method string, err error) {
 	dividerIdx := strings.IndexRune(a.Name, '/')
 	if dividerIdx == -1 || dividerIdx == len(a.Name)-1 || dividerIdx == 0 {
-		return "", ""
+		return "", "", errs.ErrMethodParseFailed(a.Name)
 	}
 
-	return a.Name[:dividerIdx], a.Name[dividerIdx+1:]
+	return a.Name[:dividerIdx], a.Name[dividerIdx+1:], nil
 }

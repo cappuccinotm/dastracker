@@ -158,7 +158,7 @@ func TestTickets_Get(t *testing.T) {
 			require.NoError(t, err)
 
 			err = tx.Bucket([]byte(ticketRefsBktName)).
-				Put([]byte(taskRef(store.Locator{"tracker-2", "task-id-2"})), []byte("id"))
+				Put([]byte(taskRef(store.Locator{Tracker: "tracker-2", ID: "task-id-2"})), []byte("id"))
 			require.NoError(t, err)
 
 			return nil
@@ -168,7 +168,7 @@ func TestTickets_Get(t *testing.T) {
 		tkt, err := svc.Get(context.Background(), engine.GetRequest{
 			Locator: store.Locator{
 				Tracker: "tracker-2",
-				TaskID:  "task-id-2",
+				ID:      "task-id-2",
 			},
 		})
 		require.NoError(t, err)

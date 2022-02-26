@@ -102,7 +102,7 @@ func (r Run) prepareWebhookManager(logger logx.Logger) (webhook.Interface, error
 }
 
 func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) (map[string]tracker.Interface, error) {
-	trackers, err := flowStore.GetTrackers(context.Background())
+	trackers, err := flowStore.ListTrackers(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("get trackers configs: %w", err)
 	}

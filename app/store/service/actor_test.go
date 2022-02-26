@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"github.com/cappuccinotm/dastracker/app/errs"
+	"github.com/cappuccinotm/dastracker/app/flow"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/tracker"
@@ -35,6 +36,22 @@ func TestActor_Listen(t *testing.T) {
 					<-ctx.Done()
 					return ctx.Err()
 				},
+				SubscribeFunc: func(ctx context.Context, req tracker.SubscribeReq) error {
+					assert.Equal(t, tracker.SubscribeReq{
+						TriggerName: "someTrigger",
+						Vars:        map[string]string{"foo": "bar"},
+					}, req)
+					return nil
+				},
+			},
+		},
+		Flow: &flow.InterfaceMock{
+			ListTriggersFunc: func(ctx context.Context) ([]store.Trigger, error) {
+				return []store.Trigger{{
+					Name:    "someTrigger",
+					Tracker: "blah",
+					With:    map[string]string{"foo": "bar"},
+				}}, nil
 			},
 		},
 		Log: log.Default(),
@@ -106,7 +123,7 @@ func TestActor_runJob(t *testing.T) {
 			TicketsStore: &engine.TicketsMock{
 				GetFunc: func(_ context.Context, req engine.GetRequest) (store.Ticket, error) {
 					assert.Equal(t, engine.GetRequest{
-						Locator: store.Locator{Tracker: "tracker", TaskID: "task-id"},
+						Locator: store.Locator{Tracker: "tracker", ID: "task-id"},
 					}, req)
 					return initialTicket, nil
 				},
@@ -124,7 +141,7 @@ func TestActor_runJob(t *testing.T) {
 				"tracker": &tracker.InterfaceMock{
 					CallFunc: func(_ context.Context, req tracker.Request) (tracker.Response, error) {
 						assert.Equal(t, expectedTrackerReq, req)
-						return tracker.Response{Tracker: "new-tracker", TaskID: "new-task-id"}, nil
+						return tracker.Response{TaskID: "new-task-id"}, nil
 					},
 				},
 			},
@@ -137,7 +154,7 @@ func TestActor_runJob(t *testing.T) {
 				TriggerName: "test-trigger",
 				Actions: []store.Action{
 					{Name: "tracker/create-or-update", With: map[string]string{
-						"msg":  "Task with id {{.Update.ReceivedFrom.TaskID}} has been updated",
+						"msg":  "Task with id {{.Update.ReceivedFrom.ID}} has been updated",
 						"body": "Body: {{.Update.Content.Body}}",
 						"url":  "{{.Update.URL}}",
 					}},
@@ -145,7 +162,7 @@ func TestActor_runJob(t *testing.T) {
 			},
 			store.Update{
 				URL:          "https://blah.com",
-				ReceivedFrom: store.Locator{Tracker: "tracker", TaskID: "task-id"},
+				ReceivedFrom: store.Locator{Tracker: "tracker", ID: "task-id"},
 				Content: store.Content{
 					Body:   "updated-body",
 					Title:  "updated-title",
@@ -185,7 +202,7 @@ func TestActor_runJob(t *testing.T) {
 			TicketsStore: &engine.TicketsMock{
 				GetFunc: func(_ context.Context, req engine.GetRequest) (store.Ticket, error) {
 					assert.Equal(t, engine.GetRequest{
-						Locator: store.Locator{Tracker: "tracker", TaskID: "task-id"},
+						Locator: store.Locator{Tracker: "tracker", ID: "task-id"},
 					}, req)
 					return store.Ticket{}, errs.ErrNotFound
 				},
@@ -200,10 +217,10 @@ func TestActor_runJob(t *testing.T) {
 				},
 			},
 			Trackers: map[string]tracker.Interface{
-				"tracker": &tracker.InterfaceMock{
+				"new-tracker": &tracker.InterfaceMock{
 					CallFunc: func(_ context.Context, req tracker.Request) (tracker.Response, error) {
 						assert.Equal(t, expectedTrackerReq, req)
-						return tracker.Response{Tracker: "new-tracker", TaskID: "new-task-id"}, nil
+						return tracker.Response{TaskID: "new-task-id"}, nil
 					},
 				},
 			},
@@ -215,8 +232,8 @@ func TestActor_runJob(t *testing.T) {
 				Name:        "test-job",
 				TriggerName: "test-trigger",
 				Actions: []store.Action{
-					{Name: "tracker/create-or-update", With: map[string]string{
-						"msg":  "Task with id {{.Update.ReceivedFrom.TaskID}} has been updated",
+					{Name: "new-tracker/create-or-update", With: map[string]string{
+						"msg":  "Task with id {{.Update.ReceivedFrom.ID}} has been updated",
 						"body": "Body: {{.Update.Content.Body}}",
 						"url":  "{{.Update.URL}}",
 					}},
@@ -224,7 +241,7 @@ func TestActor_runJob(t *testing.T) {
 			},
 			store.Update{
 				URL:          "https://blah.com",
-				ReceivedFrom: store.Locator{Tracker: "tracker", TaskID: "task-id"},
+				ReceivedFrom: store.Locator{Tracker: "tracker", ID: "task-id"},
 				Content: store.Content{
 					Body:   "updated-body",
 					Title:  "updated-title",

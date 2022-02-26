@@ -26,7 +26,7 @@ var _ Webhooks = &WebhooksMock{}
 //             DeleteFunc: func(ctx context.Context, whID string) error {
 // 	               panic("mock out the Delete method")
 //             },
-//             GetFunc: func(ctx context.Context, s string) (store.Webhook, error) {
+//             GetFunc: func(ctx context.Context, whID string) (store.Webhook, error) {
 // 	               panic("mock out the Get method")
 //             },
 //             ListFunc: func(ctx context.Context, trackerID string) ([]store.Webhook, error) {
@@ -49,7 +49,7 @@ type WebhooksMock struct {
 	DeleteFunc func(ctx context.Context, whID string) error
 
 	// GetFunc mocks the Get method.
-	GetFunc func(ctx context.Context, s string) (store.Webhook, error)
+	GetFunc func(ctx context.Context, whID string) (store.Webhook, error)
 
 	// ListFunc mocks the List method.
 	ListFunc func(ctx context.Context, trackerID string) ([]store.Webhook, error)
@@ -77,8 +77,8 @@ type WebhooksMock struct {
 		Get []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// S is the s argument value.
-			S string
+			// WhID is the whID argument value.
+			WhID string
 		}
 		// List holds details about calls to the List method.
 		List []struct {
@@ -173,33 +173,33 @@ func (mock *WebhooksMock) DeleteCalls() []struct {
 }
 
 // Get calls GetFunc.
-func (mock *WebhooksMock) Get(ctx context.Context, s string) (store.Webhook, error) {
+func (mock *WebhooksMock) Get(ctx context.Context, whID string) (store.Webhook, error) {
 	if mock.GetFunc == nil {
 		panic("WebhooksMock.GetFunc: method is nil but Webhooks.Get was just called")
 	}
 	callInfo := struct {
-		Ctx context.Context
-		S   string
+		Ctx  context.Context
+		WhID string
 	}{
-		Ctx: ctx,
-		S:   s,
+		Ctx:  ctx,
+		WhID: whID,
 	}
 	mock.lockGet.Lock()
 	mock.calls.Get = append(mock.calls.Get, callInfo)
 	mock.lockGet.Unlock()
-	return mock.GetFunc(ctx, s)
+	return mock.GetFunc(ctx, whID)
 }
 
 // GetCalls gets all the calls that were made to Get.
 // Check the length with:
 //     len(mockedWebhooks.GetCalls())
 func (mock *WebhooksMock) GetCalls() []struct {
-	Ctx context.Context
-	S   string
+	Ctx  context.Context
+	WhID string
 } {
 	var calls []struct {
-		Ctx context.Context
-		S   string
+		Ctx  context.Context
+		WhID string
 	}
 	mock.lockGet.RLock()
 	calls = mock.calls.Get

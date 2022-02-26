@@ -138,5 +138,5 @@ func (b *Tickets) getTicketID(tx *bolt.Tx, locator store.Locator) (string, error
 }
 
 func taskRef(locator store.Locator) string {
-	return fmt.Sprintf("%s!!%s", locator.Tracker, locator.TaskID)
+	return fmt.Sprintf("%s!!%s", locator.Tracker, locator.ID)
 }

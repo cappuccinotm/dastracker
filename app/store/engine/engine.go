@@ -5,6 +5,7 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
+//go:generate rm -f ticket_mock.go webhook_mock.go
 //go:generate moq -out ticket_mock.go -fmt goimports . Tickets
 //go:generate moq -out webhook_mock.go -fmt goimports . Webhooks
 
@@ -18,7 +19,7 @@ type Tickets interface {
 // Webhooks defines methods to store and load information about webhooks.
 type Webhooks interface {
 	Create(ctx context.Context, wh store.Webhook) (whID string, err error)
-	Get(ctx context.Context, s string) (store.Webhook, error)
+	Get(ctx context.Context, whID string) (store.Webhook, error)
 	Delete(ctx context.Context, whID string) error
 	Update(ctx context.Context, wh store.Webhook) error
 

@@ -38,6 +38,9 @@ type Manager struct {
 // NewManager makes new instance of Manager.
 func NewManager(baseURL string, r *mux.Router, store engine.Webhooks, l logx.Logger) *Manager {
 	svc := &Manager{baseURL: baseURL, r: r, store: store, l: l}
+
+	// todo load webhooks from storage
+
 	svc.r.Use(svc.whLoaderMiddleware)
 	return svc
 }

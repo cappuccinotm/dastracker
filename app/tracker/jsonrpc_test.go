@@ -71,7 +71,7 @@ func TestJSONRPC_Call(t *testing.T) {
 		Vars: lib.Vars{},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, Response{Tracker: "jrpc", TaskID: "task-id"}, resp)
+	assert.Equal(t, Response{TaskID: "task-id"}, resp)
 }
 
 func TestJSONRPC_Subscribe(t *testing.T) {
@@ -97,7 +97,6 @@ func TestJSONRPC_Subscribe(t *testing.T) {
 				assert.Equal(t, "jrpc.Subscribe", serviceMethod)
 				assert.Equal(t, SubscribeReq{
 					TriggerName: "trigger",
-					Tracker:     "jrpc",
 					Vars: map[string]string{
 						"blah": "blah",
 						"_url": "https://blah.com/webhooks/jrpc/trigger-id",
@@ -110,7 +109,6 @@ func TestJSONRPC_Subscribe(t *testing.T) {
 
 	err := svc.Subscribe(context.Background(), SubscribeReq{
 		TriggerName: "trigger",
-		Tracker:     "jrpc",
 		Vars:        map[string]string{"blah": "blah"},
 	})
 	require.NoError(t, err)
@@ -123,7 +121,7 @@ func TestJSONRPC_whHandler(t *testing.T) {
 			assert.Equal(t, store.Update{
 				URL:          "url",
 				TriggerName:  "wh-trigger-name",
-				ReceivedFrom: store.Locator{TaskID: "task-id", Tracker: "wh-tracker-name"},
+				ReceivedFrom: store.Locator{ID: "task-id", Tracker: "wh-tracker-name"},
 				Content: store.Content{
 					Body:   "body",
 					Title:  "title",
@@ -149,7 +147,7 @@ func TestJSONRPC_whHandler(t *testing.T) {
 
 	b, err := json.Marshal(store.Update{
 		URL:          "url",
-		ReceivedFrom: store.Locator{TaskID: "task-id"},
+		ReceivedFrom: store.Locator{ID: "task-id"},
 		Content: store.Content{
 			Body:   "body",
 			Title:  "title",

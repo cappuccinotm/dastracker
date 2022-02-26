@@ -65,14 +65,14 @@ func (g *Github) updateOrCreateIssue(ctx context.Context, req Request) (Response
 			return Response{}, fmt.Errorf("create task: %w", err)
 		}
 
-		return Response{Tracker: g.name, TaskID: id}, nil
+		return Response{TaskID: id}, nil
 	}
 
 	if err := g.updateIssue(ctx, ghID, req.Vars); err != nil {
 		return Response{}, fmt.Errorf("update task: %w", err)
 	}
 
-	return Response{Tracker: g.name, TaskID: ghID}, nil
+	return Response{TaskID: ghID}, nil
 }
 
 func (g *Github) createIssue(ctx context.Context, vars lib.Vars) (string, error) {
@@ -213,6 +213,11 @@ func (g *Github) Subscribe(ctx context.Context, req SubscribeReq) error {
 	return nil
 }
 
+// Unsubscribe removes the webhook from github and removes the handler for that webhook.
+func (g *Github) Unsubscribe(ctx context.Context, req SubscribeReq) error {
+	panic("unimplemented")
+}
+
 func (g *Github) whHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -240,7 +245,7 @@ func (g *Github) whHandler(w http.ResponseWriter, r *http.Request) {
 	upd := store.Update{
 		TriggerName:  wh.TriggerName,
 		URL:          ghUpdate.Issue.URL,
-		ReceivedFrom: store.Locator{Tracker: wh.TrackerName, TaskID: strconv.Itoa(ghUpdate.Issue.ID)},
+		ReceivedFrom: store.Locator{Tracker: wh.TrackerName, ID: strconv.Itoa(ghUpdate.Issue.ID)},
 		Content: store.Content{
 			Body:   ghUpdate.Issue.Description,
 			Title:  ghUpdate.Issue.Title,

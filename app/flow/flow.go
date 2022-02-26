@@ -10,6 +10,7 @@ import (
 
 // Interface defines methods to access the flow configuration.
 type Interface interface {
-	GetSubscribedJobs(ctx context.Context, triggerName string) ([]store.Job, error)
-	GetTrackers(context.Context) ([]Tracker, error)
+	ListSubscribedJobs(ctx context.Context, triggerName string) ([]store.Job, error)
+	ListTrackers(context.Context) ([]Tracker, error)
+	ListTriggers(context.Context) ([]store.Trigger, error)
 }

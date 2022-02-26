@@ -30,10 +30,13 @@ type Actor struct {
 	UpdateTimeout time.Duration
 }
 
-// Listen runs the updates' listener.
-// Always returns non-nil error.
+// Listen runs the updates' listener. Always returns non-nil error.
 // Blocking call.
 func (s *Actor) Listen(ctx context.Context) error {
+	if err := s.registerTriggers(ctx); err != nil {
+		return fmt.Errorf("register triggers: %w", err)
+	}
+
 	ewg, ctx := errgroup.WithContext(ctx)
 
 	for name, trk := range s.Trackers {
@@ -67,7 +70,7 @@ func (s *Actor) handleUpdate(ctx context.Context, upd store.Update) {
 		defer cancel()
 	}
 
-	jobs, err := s.Flow.GetSubscribedJobs(ctx, upd.TriggerName)
+	jobs, err := s.Flow.ListSubscribedJobs(ctx, upd.TriggerName)
 	if err != nil {
 		s.Log.Printf("[WARN] failed to get subscribed jobs for trigger %q on update from %s: %v",
 			upd.TriggerName, upd.ReceivedFrom, err)
@@ -118,7 +121,7 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 			return fmt.Errorf("call to %s: %w", act.Name, err)
 		}
 
-		ticket.TrackerIDs.Set(resp.Tracker, resp.TaskID)
+		ticket.TrackerIDs.Set(trkName, resp.TaskID)
 	}
 
 	if ticket.ID == "" {
@@ -132,6 +135,43 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 	if err = s.TicketsStore.Update(ctx, ticket); err != nil {
 		return fmt.Errorf("update ticket from %s: %w", upd.ReceivedFrom, err)
 	}
+
+	return nil
+}
+
+func (s *Actor) registerTriggers(ctx context.Context) error {
+	triggers, err := s.Flow.ListTriggers(ctx)
+	if err != nil {
+		return fmt.Errorf("list triggers: %w", err)
+	}
+
+	ewg, ctx := errgroup.WithContext(ctx)
+
+	for _, trigger := range triggers {
+		trigger := trigger
+		ewg.Go(func() error {
+			vars, err := store.Evaluate(trigger.With, store.Update{})
+			if err != nil {
+				return fmt.Errorf("evaluate variables for %q trigger: %w", trigger.Name, err)
+			}
+
+			err = s.Trackers[trigger.Tracker].Subscribe(ctx, tracker.SubscribeReq{
+				TriggerName: trigger.Name,
+				Vars:        vars,
+			})
+			if err != nil {
+				return fmt.Errorf("subscribe %q to %q: %w", trigger.Name, trigger.Tracker, err)
+			}
+			return nil
+		})
+	}
+
+	if err = ewg.Wait(); err != nil {
+		// todo unsubscribe from already registered triggers
+		return fmt.Errorf("register triggers: %w", err)
+	}
+
+	// todo unregister triggers on shutdown
 
 	return nil
 }
