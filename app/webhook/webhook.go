@@ -79,7 +79,7 @@ func (m *Manager) SetTrackerID(ctx context.Context, webhookID, trackerID string)
 		return fmt.Errorf("get webhook: %w", err)
 	}
 
-	wh.TrackerID = trackerID
+	wh.TrackerRef = trackerID
 
 	if err = m.store.Update(ctx, wh); err != nil {
 		return fmt.Errorf("update webhook: %w", err)

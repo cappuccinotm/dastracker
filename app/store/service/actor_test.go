@@ -7,10 +7,10 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/tracker"
+	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"log"
 	"reflect"
 	"runtime"
 	"sync"
@@ -54,7 +54,7 @@ func TestActor_Listen(t *testing.T) {
 				}}, nil
 			},
 		},
-		Log: log.Default(),
+		Log: logx.Nop(),
 	}
 
 	ctx, stop := context.WithCancel(context.Background())
@@ -119,7 +119,7 @@ func TestActor_runJob(t *testing.T) {
 			},
 		}
 		svc := &Actor{
-			Log: log.Default(),
+			Log: logx.Nop(),
 			TicketsStore: &engine.TicketsMock{
 				GetFunc: func(_ context.Context, req engine.GetRequest) (store.Ticket, error) {
 					assert.Equal(t, engine.GetRequest{
@@ -198,7 +198,7 @@ func TestActor_runJob(t *testing.T) {
 			},
 		}
 		svc := &Actor{
-			Log: log.Default(),
+			Log: logx.Nop(),
 			TicketsStore: &engine.TicketsMock{
 				GetFunc: func(_ context.Context, req engine.GetRequest) (store.Ticket, error) {
 					assert.Equal(t, engine.GetRequest{

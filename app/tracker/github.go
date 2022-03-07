@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+const githubAPIURL = "https://api.github.com"
+
 var ghSupportedActions = map[string]func(*Github, context.Context, Request) (Response, error){
 	"UpdateOrCreateIssue": (*Github).updateOrCreateIssue,
 }
@@ -32,20 +34,35 @@ type Github struct {
 	handler Handler
 }
 
-// NewGithub makes new instance of Github tracker.
-func NewGithub(name string, whm webhook.Interface, vars lib.Vars) (*Github, error) {
-	svc := &Github{}
+// GithubParams describes parameters to initialize Github.
+type GithubParams struct {
+	Name           string
+	WebhookManager webhook.Interface
+	Vars           lib.Vars
+	Client         *http.Client
+	Logger         logx.Logger
+}
 
-	if err := whm.Register(name, http.HandlerFunc(svc.whHandler)); err != nil {
+// NewGithub makes new instance of Github tracker.
+func NewGithub(params GithubParams) (*Github, error) {
+	svc := &Github{
+		baseURL: githubAPIURL,
+		name:    params.Name,
+		l:       params.Logger,
+		whm:     params.WebhookManager,
+		cl:      params.Client,
+	}
+
+	if err := svc.whm.Register(svc.name, http.HandlerFunc(svc.whHandler)); err != nil {
 		return nil, fmt.Errorf("register webhooks handler: %w", err)
 	}
 
-	svc.repo.Owner = vars.Get("owner")
-	svc.repo.Name = vars.Get("name")
+	svc.repo.Owner = params.Vars.Get("owner")
+	svc.repo.Name = params.Vars.Get("name")
 
 	svc.cl = &http.Client{
 		Transport: httpx.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
-			r.SetBasicAuth(vars.Get("user"), vars.Get("access_token"))
+			r.SetBasicAuth(params.Vars.Get("user"), params.Vars.Get("access_token"))
 			return http.DefaultTransport.RoundTrip(r)
 		}),
 		Timeout: 5 * time.Second,
@@ -70,7 +87,7 @@ func (g *Github) Call(ctx context.Context, req Request) (Response, error) {
 func (g *Github) updateOrCreateIssue(ctx context.Context, req Request) (Response, error) {
 	ghID := req.Ticket.TrackerIDs.Get(g.name)
 	if ghID == "" {
-		id, err := g.createIssue(ctx, req.Vars)
+		id, err := g.issue(ctx, http.MethodPost, "", req.Vars)
 		if err != nil {
 			return Response{}, fmt.Errorf("create task: %w", err)
 		}
@@ -78,24 +95,20 @@ func (g *Github) updateOrCreateIssue(ctx context.Context, req Request) (Response
 		return Response{TaskID: id}, nil
 	}
 
-	if err := g.updateIssue(ctx, ghID, req.Vars); err != nil {
+	if _, err := g.issue(ctx, http.MethodPatch, ghID, req.Vars); err != nil {
 		return Response{}, fmt.Errorf("update task: %w", err)
 	}
 
 	return Response{TaskID: ghID}, nil
 }
 
-func (g *Github) createIssue(ctx context.Context, vars lib.Vars) (string, error) {
-	return g.issue(ctx, http.MethodPost, "", vars)
-}
-
-func (g *Github) updateIssue(ctx context.Context, id string, vars lib.Vars) error {
-	_, err := g.issue(ctx, http.MethodPatch, id, vars)
-	return err
-}
-
 func (g *Github) issue(ctx context.Context, method, id string, vars lib.Vars) (respID string, err error) {
-	bts, err := json.Marshal(g.parseIssueReq(vars))
+	bts, err := json.Marshal(map[string]interface{}{
+		"title":     vars.Get("title"),
+		"body":      vars.Get("body"),
+		"assignees": vars.List("assignees"),
+		"milestone": vars.Get("milestone"),
+	})
 	if err != nil {
 		return "", fmt.Errorf("marshal request body: %w", err)
 	}
@@ -135,22 +148,6 @@ func (g *Github) issue(ctx context.Context, method, id string, vars lib.Vars) (r
 	}
 
 	return respBody.ID, nil
-}
-
-type ghIssueReq struct {
-	Title     string   `json:"title"`
-	Body      string   `json:"body"`
-	Assignees []string `json:"assignees"`
-	Milestone string   `json:"milestone"`
-}
-
-func (g *Github) parseIssueReq(vars lib.Vars) ghIssueReq {
-	r := ghIssueReq{}
-	r.Title = vars.Get("title")
-	r.Body = vars.Get("body")
-	r.Milestone = vars.Get("milestone")
-	r.Assignees = vars.List("assignees")
-	return r
 }
 
 // Subscribe sends a request to github for webhook and sets a handler for that webhook.
@@ -263,6 +260,12 @@ func (g *Github) whHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
+	g.l.Printf("[DEBUG] received webhook update: %+v", upd)
+
+	if g.handler == nil {
+		g.l.Printf("[WARN] no handler is set, but update received")
+		return
+	}
 	g.handler.Handle(ctx, upd)
 }
 

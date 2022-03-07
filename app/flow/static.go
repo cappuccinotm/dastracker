@@ -62,7 +62,9 @@ func (s *Static) ListTriggers(_ context.Context) ([]store.Trigger, error) {
 }
 
 // ListTrackers returns the list of registered trackers with their configurations.
-func (s *Static) ListTrackers(_ context.Context) ([]Tracker, error) { return s.Trackers, nil }
+func (s *Static) ListTrackers(_ context.Context) ([]Tracker, error) {
+	return s.Trackers, nil
+}
 
 // ListSubscribedJobs returns the jobs attached to the trigger
 // by the name of the trigger.

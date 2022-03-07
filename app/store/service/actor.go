@@ -168,7 +168,7 @@ func (s *Actor) registerTriggers(ctx context.Context) error {
 
 	if err = ewg.Wait(); err != nil {
 		// todo unsubscribe from already registered triggers
-		return fmt.Errorf("register triggers: %w", err)
+		return fmt.Errorf("one of trackers refused to register triggers: %w", err)
 	}
 
 	// todo unregister triggers on shutdown

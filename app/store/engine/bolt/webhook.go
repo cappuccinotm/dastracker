@@ -54,7 +54,7 @@ func (b *Webhooks) Create(ctx context.Context, wh store.Webhook) (string, error)
 	wh.ID = uuid.NewString()
 
 	if err := b.Update(ctx, wh); err != nil {
-		return "", fmt.Errorf("put webhook into storage: %b", err)
+		return "", fmt.Errorf("put webhook into storage: %w", err)
 	}
 
 	return wh.ID, nil
@@ -118,14 +118,18 @@ func (b *Webhooks) Update(_ context.Context, wh store.Webhook) error {
 			return fmt.Errorf("put webhook to storage: %w", err)
 		}
 
-		bkt, err := tx.Bucket([]byte(trackerToWhRefsBktName)).CreateBucketIfNotExists([]byte(wh.TrackerID))
+		if wh.TrackerRef == "" {
+			return nil
+		}
+
+		bkt, err := tx.Bucket([]byte(trackerToWhRefsBktName)).CreateBucketIfNotExists([]byte(wh.TrackerRef))
 		if err != nil {
-			return fmt.Errorf("create refs bucket for tracker %s: %w", wh.TrackerID, err)
+			return fmt.Errorf("create refs bucket for tracker %s: %w", wh.TrackerRef, err)
 		}
 
 		if err = bkt.Put([]byte(wh.ID), []byte(time.Now().Format(time.RFC3339Nano))); err != nil {
 			return fmt.Errorf("put %s webhook reference into %s tracker's bucket: %w",
-				wh.ID, wh.TrackerID, err)
+				wh.ID, wh.TrackerRef, err)
 		}
 
 		return nil

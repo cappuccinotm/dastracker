@@ -62,7 +62,7 @@ func TestManager_Register(t *testing.T) {
 func TestNewManager(t *testing.T) {
 	expectedWh := store.Webhook{
 		ID:          "id",
-		TrackerID:   "tracker-id",
+		TrackerRef:  "tracker-id",
 		TrackerName: "tracker-name",
 		TriggerName: "trigger-name",
 		BaseURL:     "base-url",
@@ -81,10 +81,12 @@ func TestNewManager(t *testing.T) {
 		"blah",
 		mux.NewRouter(),
 		eng,
-		logx.LoggerFunc(func(f string, args ...interface{}) {
-			t.Logf(f, args...)
-			assert.FailNow(t, "log must not called")
-		}),
+		&logx.LoggerMock{
+			PrintfFunc: func(f string, args ...interface{}) {
+				t.Logf(f, args...)
+				assert.FailNow(t, "log must not called")
+			},
+		},
 	)
 	m.r.PathPrefix("/{whID}").Methods("GET").
 		HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +115,7 @@ func TestManager_SetTrackerID(t *testing.T) {
 			return store.Webhook{ID: "id"}, nil
 		},
 		UpdateFunc: func(_ context.Context, wh store.Webhook) error {
-			assert.Equal(t, store.Webhook{ID: "id", TrackerID: "tracker-id"}, wh)
+			assert.Equal(t, store.Webhook{ID: "id", TrackerRef: "tracker-id"}, wh)
 			return nil
 		},
 	}

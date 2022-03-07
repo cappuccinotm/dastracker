@@ -7,6 +7,7 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/webhook"
 	"github.com/cappuccinotm/dastracker/lib"
+	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/cappuccinotm/dastracker/pkg/rpcx"
 	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ func TestNewJSONRPC(t *testing.T) {
 	u, err := url.Parse(ts.URL)
 	require.NoError(t, err)
 
-	_, err = NewJSONRPC("jsonrpc", &webhook.InterfaceMock{
+	_, err = NewJSONRPC("jsonrpc", logx.Nop(), &webhook.InterfaceMock{
 		RegisterFunc: func(name string, handler http.Handler) error {
 			assert.Equal(t, "jsonrpc", name)
 			assert.NotNil(t, handler)
@@ -136,7 +137,7 @@ func TestJSONRPC_whHandler(t *testing.T) {
 		func(w http.ResponseWriter, r *http.Request) {
 			r = r.WithContext(webhook.PutWebhook(r.Context(), store.Webhook{
 				ID:          "wh-id",
-				TrackerID:   "wh-tracker-id",
+				TrackerRef:  "wh-tracker-id",
 				TrackerName: "wh-tracker-name",
 				TriggerName: "wh-trigger-name",
 				BaseURL:     "wh-base-url",

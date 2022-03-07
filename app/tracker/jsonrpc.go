@@ -27,7 +27,7 @@ type JSONRPC struct {
 }
 
 // NewJSONRPC makes new instance of JSONRPC.
-func NewJSONRPC(name string, whm webhook.Interface, vars lib.Vars) (*JSONRPC, error) {
+func NewJSONRPC(name string, l logx.Logger, whm webhook.Interface, vars lib.Vars) (*JSONRPC, error) {
 	dialer, err := rpcx.NewRedialer(
 		rpcx.JSONRPC(),
 		&strategy.FixedDelay{Repeats: 3, Delay: time.Second},
@@ -38,7 +38,7 @@ func NewJSONRPC(name string, whm webhook.Interface, vars lib.Vars) (*JSONRPC, er
 		return nil, fmt.Errorf("initialize new dialer for %s tracker: %w", name, err)
 	}
 
-	svc := &JSONRPC{cl: dialer, name: name, whm: whm}
+	svc := &JSONRPC{cl: dialer, name: name, whm: whm, l: l}
 
 	if err := whm.Register(name, http.HandlerFunc(svc.whHandler)); err != nil {
 		return nil, fmt.Errorf("register webhooks handler: %w", err)

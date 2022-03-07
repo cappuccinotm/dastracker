@@ -27,7 +27,7 @@ func main() {
 		setupLog(opts.Debug)
 
 		if err := cmd.Execute(args); err != nil {
-			log.Printf("[ERROR] failed to execute command %+v", err)
+			log.Printf("[ERROR] failed to execute command: %+v", err)
 		}
 		return nil
 	}
@@ -52,7 +52,7 @@ func setupLog(dbg bool) {
 	logFlags := log.Ldate | log.Ltime
 
 	if dbg {
-		logFlags = log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile
+		logFlags = log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
 		filter.MinLevel = "DEBUG"
 	}
 

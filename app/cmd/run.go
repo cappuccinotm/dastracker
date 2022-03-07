@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/cappuccinotm/dastracker/app/flow"
+	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	boltEngs "github.com/cappuccinotm/dastracker/app/store/engine/bolt"
 	"github.com/cappuccinotm/dastracker/app/store/service"
@@ -13,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	bolt "go.etcd.io/bbolt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path"
@@ -59,7 +61,7 @@ func (r Run) Execute(_ []string) error {
 		return fmt.Errorf("initialize webhooks manager: %w", err)
 	}
 
-	trackers, err := r.prepareTrackers(flowStore, webhooksManager)
+	trackers, err := r.prepareTrackers(logger, flowStore, webhooksManager)
 	if err != nil {
 		return fmt.Errorf("prepare trackers: %w", err)
 	}
@@ -101,7 +103,7 @@ func (r Run) prepareWebhookManager(logger logx.Logger) (webhook.Interface, error
 	return webhook.NewManager(r.Webhook.BaseURL, mux.NewRouter(), webhooksStore, logger), nil
 }
 
-func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) (map[string]tracker.Interface, error) {
+func (r Run) prepareTrackers(logger logx.Logger, flowStore flow.Interface, whm webhook.Interface) (map[string]tracker.Interface, error) {
 	trackers, err := flowStore.ListTrackers(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("get trackers configs: %w", err)
@@ -109,13 +111,25 @@ func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) (m
 
 	res := map[string]tracker.Interface{}
 	for _, trk := range trackers {
+		if trk.With, err = store.Evaluate(trk.With, store.Update{}); err != nil {
+			return nil, fmt.Errorf("evaluate variables for tracker %q: %w", trk.Name, err)
+		}
+
+		sublogger := logger.Sub(trk.Name + ": ")
+
 		switch trk.Driver {
 		case "rpc":
-			if res[trk.Name], err = tracker.NewJSONRPC(trk.Name, whm, trk.With); err != nil {
+			if res[trk.Name], err = tracker.NewJSONRPC(trk.Name, sublogger, whm, trk.With); err != nil {
 				return nil, fmt.Errorf("initialize jsonrpc tracker %s: %w", trk.Name, err)
 			}
 		case "github":
-			if res[trk.Name], err = tracker.NewGithub(trk.Name, whm, trk.With); err != nil {
+			if res[trk.Name], err = tracker.NewGithub(tracker.GithubParams{
+				Name:           trk.Name,
+				WebhookManager: whm,
+				Vars:           trk.With,
+				Client:         &http.Client{Timeout: 5 * time.Second},
+				Logger:         sublogger,
+			}); err != nil {
 				return nil, fmt.Errorf("initialize github tracker %s: %w", trk.Name, err)
 			}
 		default:
@@ -152,4 +166,4 @@ func (r Run) prepareTicketsStore() (engine.Tickets, error) {
 	}
 }
 
-func (r Run) prepareLogger() (logx.Logger, error) { return log.Default(), nil }
+func (r Run) prepareLogger() (logx.Logger, error) { return logx.Std(log.Default()), nil }

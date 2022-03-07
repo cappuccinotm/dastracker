@@ -22,7 +22,7 @@ import (
 func TestWebhook_Create(t *testing.T) {
 	svc := prepareWebhook(t)
 	id, err := svc.Create(context.Background(), store.Webhook{
-		TrackerID:   "tracker-id",
+		TrackerRef:  "tracker-id",
 		TrackerName: "tracker-name",
 		TriggerName: "trigger-name",
 		BaseURL:     "base-url",
@@ -37,7 +37,7 @@ func TestWebhook_Create(t *testing.T) {
 		assert.NoError(t, json.Unmarshal(whBts, &wh))
 		assert.Equal(t, store.Webhook{
 			ID:          id,
-			TrackerID:   "tracker-id",
+			TrackerRef:  "tracker-id",
 			TrackerName: "tracker-name",
 			TriggerName: "trigger-name",
 			BaseURL:     "base-url",
@@ -58,7 +58,7 @@ func TestWebhook_Update(t *testing.T) {
 	svc := prepareWebhook(t)
 	err := svc.Update(context.Background(), store.Webhook{
 		ID:          "id",
-		TrackerID:   "tracker-id",
+		TrackerRef:  "tracker-id",
 		TrackerName: "tracker-name",
 		TriggerName: "trigger-name",
 		BaseURL:     "base-url",
@@ -72,7 +72,7 @@ func TestWebhook_Update(t *testing.T) {
 		assert.NoError(t, json.Unmarshal(whBts, &wh))
 		assert.Equal(t, store.Webhook{
 			ID:          "id",
-			TrackerID:   "tracker-id",
+			TrackerRef:  "tracker-id",
 			TrackerName: "tracker-name",
 			TriggerName: "trigger-name",
 			BaseURL:     "base-url",
@@ -106,7 +106,7 @@ func TestWebhook_List(t *testing.T) {
 		for i := 1; i <= amount; i++ {
 			res = append(res, store.Webhook{
 				ID:          fmt.Sprintf("%d-id", i),
-				TrackerID:   fmt.Sprintf("%d-tracker-id", i),
+				TrackerRef:  fmt.Sprintf("%d-tracker-id", i),
 				TrackerName: "tracker-name",
 				TriggerName: fmt.Sprintf("%d-trigger-name", i),
 				BaseURL:     fmt.Sprintf("%d-base-url", i),
@@ -147,7 +147,7 @@ func TestWebhook_Delete(t *testing.T) {
 	err := svc.db.Update(func(tx *bolt.Tx) error {
 		bts, err := json.Marshal(store.Webhook{
 			ID:          "id",
-			TrackerID:   "tracker-id",
+			TrackerRef:  "tracker-id",
 			TrackerName: "tracker-name",
 			TriggerName: "trigger-name",
 			BaseURL:     "base-url",

@@ -12,7 +12,7 @@ import (
 type Webhook struct {
 	ID string `json:"id"`
 
-	TrackerID string `json:"tracker_id"`
+	TrackerRef string `json:"tracker_ref"`
 
 	TrackerName string `json:"tracker_name"`
 	TriggerName string `json:"trigger_name"`
