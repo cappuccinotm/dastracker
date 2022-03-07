@@ -46,10 +46,7 @@ func (r Run) Execute(_ []string) error {
 		return fmt.Errorf("prepare flow storage: %w", err)
 	}
 
-	logger, err := r.prepareLogger()
-	if err != nil {
-		return fmt.Errorf("prepare logger: %w", err)
-	}
+	logger := logx.Std(log.Default())
 
 	ticketsStore, err := r.prepareTicketsStore()
 	if err != nil {
@@ -70,7 +67,7 @@ func (r Run) Execute(_ []string) error {
 		Trackers:      trackers,
 		TicketsStore:  ticketsStore,
 		Flow:          flowStore,
-		Log:           logger,
+		Log:           logger.Sub("actor: "),
 		UpdateTimeout: r.UpdateTimeout,
 	}
 
@@ -100,7 +97,7 @@ func (r Run) prepareWebhookManager(logger logx.Logger) (webhook.Interface, error
 		return nil, fmt.Errorf("initialize webhooks store: %w", err)
 	}
 
-	return webhook.NewManager(r.Webhook.BaseURL, mux.NewRouter(), webhooksStore, logger), nil
+	return webhook.NewManager(r.Webhook.BaseURL, mux.NewRouter(), webhooksStore, logger.Sub("webhook_manager: ")), nil
 }
 
 func (r Run) prepareTrackers(logger logx.Logger, flowStore flow.Interface, whm webhook.Interface) (map[string]tracker.Interface, error) {
@@ -115,7 +112,7 @@ func (r Run) prepareTrackers(logger logx.Logger, flowStore flow.Interface, whm w
 			return nil, fmt.Errorf("evaluate variables for tracker %q: %w", trk.Name, err)
 		}
 
-		sublogger := logger.Sub(trk.Name + ": ")
+		sublogger := logger.Sub(fmt.Sprintf("tracker[%s]: ", trk.Name))
 
 		switch trk.Driver {
 		case "rpc":
@@ -165,5 +162,3 @@ func (r Run) prepareTicketsStore() (engine.Tickets, error) {
 		return nil, fmt.Errorf("unsupported store type: %s", r.Store.Type)
 	}
 }
-
-func (r Run) prepareLogger() (logx.Logger, error) { return logx.Std(log.Default()), nil }

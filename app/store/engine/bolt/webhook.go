@@ -91,7 +91,7 @@ func (b *Webhooks) Delete(_ context.Context, whID string) error {
 
 		trkBkt := tx.Bucket([]byte(trackerToWhRefsBktName)).Bucket([]byte(wh.TrackerName))
 		if trkBkt == nil {
-			return fmt.Errorf("bucket with %s tracker not found: %w", wh.TrackerName, err)
+			return fmt.Errorf("bucket with %q tracker not found: %w", wh.TrackerName, errs.ErrNotFound)
 		}
 
 		if err = trkBkt.Delete([]byte(whID)); err != nil {

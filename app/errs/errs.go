@@ -49,15 +49,13 @@ func (e ErrActionNotSupported) Error() string {
 	return fmt.Sprintf("action %q is not supported", string(e))
 }
 
-// ErrUnexpectedStatus indicates that the remote tracker returned an unexpected
-// status code.
-type ErrUnexpectedStatus struct {
-	RequestBody    []byte
-	ResponseBody   []byte
+// ErrGithubAPI describes any error responded by the Github API.
+type ErrGithubAPI struct {
 	ResponseStatus int
+	Message        string `json:"message"`
 }
 
 // Error returns the string representation of the error.
-func (e ErrUnexpectedStatus) Error() string {
-	return fmt.Sprintf("unexpected status code: %d", e.ResponseStatus)
+func (e ErrGithubAPI) Error() string {
+	return fmt.Sprintf("github api responded error with status %d, message: %s", e.ResponseStatus, e.Message)
 }

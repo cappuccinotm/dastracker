@@ -132,7 +132,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 			}, resp)
 
 			w.WriteHeader(http.StatusBadRequest)
-			_, err = w.Write([]byte(`{"error": "some-github-error"}`))
+			_, err = w.Write([]byte(`{"message": "some-github-error"}`))
 			require.NoError(t, err)
 			called = true
 		})
@@ -148,16 +148,10 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 			},
 		})
 		assert.Empty(t, resp)
-		var rerr errs.ErrUnexpectedStatus
+		var rerr errs.ErrGithubAPI
 		require.ErrorAs(t, err, &rerr)
 		assert.Equal(t, http.StatusBadRequest, rerr.ResponseStatus)
-		assert.Equal(t, []byte(`{"error": "some-github-error"}`), rerr.ResponseBody)
-		assert.JSONEq(t, string(requireJSONMarshal(t, issue{
-			Title:     "title",
-			Body:      "body",
-			Assignees: []string{"assignee1", "assignee2"},
-			Milestone: "milestone",
-		})), string(rerr.RequestBody))
+		assert.Equal(t, "some-github-error", rerr.Message)
 		assert.True(t, called)
 	})
 

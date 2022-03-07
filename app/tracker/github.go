@@ -11,7 +11,6 @@ import (
 	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/cappuccinotm/dastracker/pkg/httpx"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
-	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -130,13 +129,7 @@ func (g *Github) issue(ctx context.Context, method, id string, vars lib.Vars) (r
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		rerr := errs.ErrUnexpectedStatus{RequestBody: bts, ResponseStatus: resp.StatusCode}
-		if rerr.ResponseBody, err = io.ReadAll(resp.Body); err != nil {
-			g.l.Printf("[WARN] failed to read github create issue response body for status %d",
-				resp.StatusCode)
-			return "", rerr
-		}
-		return "", rerr
+		return "", g.handleUnexpectedStatus(resp)
 	}
 
 	var respBody struct {
@@ -197,14 +190,9 @@ func (g *Github) Subscribe(ctx context.Context, req SubscribeReq) error {
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		rerr := errs.ErrUnexpectedStatus{RequestBody: bts, ResponseStatus: resp.StatusCode}
-		if rerr.ResponseBody, err = io.ReadAll(resp.Body); err != nil {
-			g.l.Printf("[WARN] failed to read github create webhook response body for status %d",
-				resp.StatusCode)
-			return rerr
-		}
-		return rerr
+		return g.handleUnexpectedStatus(resp)
 	}
+
 	var respBody struct {
 		ID string `json:"id"`
 	}
@@ -218,6 +206,17 @@ func (g *Github) Subscribe(ctx context.Context, req SubscribeReq) error {
 	}
 
 	return nil
+}
+
+func (g *Github) handleUnexpectedStatus(resp *http.Response) error {
+	rerr := errs.ErrGithubAPI{ResponseStatus: resp.StatusCode}
+
+	if err := json.NewDecoder(resp.Body).Decode(&rerr); err != nil {
+		g.l.Printf("[WARN] github API responded with status %d, failed to decode response body: %v", resp.StatusCode, err)
+		return rerr
+	}
+
+	return rerr
 }
 
 // Unsubscribe removes the webhook from github and removes the handler for that webhook.
