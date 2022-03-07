@@ -2,6 +2,12 @@ package service
 
 import (
 	"context"
+	"reflect"
+	"runtime"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/flow"
 	"github.com/cappuccinotm/dastracker/app/store"
@@ -11,11 +17,6 @@ import (
 	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"reflect"
-	"runtime"
-	"sync"
-	"testing"
-	"time"
 )
 
 func TestActor_Listen(t *testing.T) {

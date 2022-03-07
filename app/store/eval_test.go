@@ -1,10 +1,11 @@
 package store
 
 import (
-	"github.com/cappuccinotm/dastracker/lib"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/cappuccinotm/dastracker/lib"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEvaluate(t *testing.T) {

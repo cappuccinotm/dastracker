@@ -3,6 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"path"
+	"syscall"
+	"time"
+
 	"github.com/cappuccinotm/dastracker/app/flow"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
@@ -13,13 +21,6 @@ import (
 	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/gorilla/mux"
 	bolt "go.etcd.io/bbolt"
-	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"path"
-	"syscall"
-	"time"
 )
 
 // Run starts a tracker listener.

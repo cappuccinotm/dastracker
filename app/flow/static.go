@@ -3,11 +3,12 @@ package flow
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/lib"
 	"gopkg.in/yaml.v3"
-	"os"
 )
 
 // Static reads the configuration for continuous task management from

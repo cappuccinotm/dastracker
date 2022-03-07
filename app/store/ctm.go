@@ -1,9 +1,10 @@
 package store
 
 import (
+	"strings"
+
 	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/lib"
-	"strings"
 )
 
 // Sequence is a set of actions

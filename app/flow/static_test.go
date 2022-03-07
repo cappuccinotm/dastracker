@@ -1,14 +1,15 @@
 package flow
 
 import (
-	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/lib"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io"
 	"os"
 	"path"
 	"testing"
+
+	"github.com/cappuccinotm/dastracker/app/store"
+	"github.com/cappuccinotm/dastracker/lib"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const testCfg = `trackers:

@@ -1,9 +1,10 @@
 package lib
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestVars_UnmarshalYAML(t *testing.T) {

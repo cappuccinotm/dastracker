@@ -7,15 +7,16 @@ package bolt
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
+	"os"
+	"path"
+	"testing"
+
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
-	"io/ioutil"
-	"os"
-	"path"
-	"testing"
 )
 
 func TestTickets_Create(t *testing.T) {

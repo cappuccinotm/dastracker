@@ -6,13 +6,14 @@ import (
 	"net/http"
 
 	"encoding/json"
+	"time"
+
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/webhook"
 	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/cappuccinotm/dastracker/pkg/rpcx"
 	"github.com/go-pkgz/repeater/strategy"
-	"time"
 )
 
 // JSONRPC implements Interface in order to allow external services,

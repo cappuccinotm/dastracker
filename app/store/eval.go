@@ -1,12 +1,13 @@
 package store
 
 import (
-	"fmt"
 	"bytes"
+	"fmt"
 	"os"
 	"strings"
-	"github.com/cappuccinotm/dastracker/lib"
 	"text/template"
+
+	"github.com/cappuccinotm/dastracker/lib"
 )
 
 type evTmpl struct{ Update Update }

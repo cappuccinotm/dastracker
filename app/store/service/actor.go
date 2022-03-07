@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/flow"
 	"github.com/cappuccinotm/dastracker/app/store"
@@ -12,8 +15,6 @@ import (
 	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/go-pkgz/syncs"
 	"golang.org/x/sync/errgroup"
-	"strings"
-	"time"
 )
 
 // maxConcurrentUpdates defines the maximum number of goroutines, that may

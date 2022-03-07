@@ -1,10 +1,11 @@
 package store
 
 import (
+	"testing"
+
 	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestAction_Path(t *testing.T) {
