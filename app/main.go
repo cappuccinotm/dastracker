@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/cappuccinotm/dastracker/app/cmd"
+	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/hashicorp/logutils"
 	"github.com/jessevdk/go-flags"
 )
@@ -23,11 +24,18 @@ func main() {
 
 	var opts Opts
 	p := flags.NewParser(&opts, flags.Default)
-	p.CommandHandler = func(cmd flags.Commander, args []string) error {
-		setupLog(opts.Debug)
+	p.CommandHandler = func(command flags.Commander, args []string) error {
+		logger := setupLog(opts.Debug)
 
-		if err := cmd.Execute(args); err != nil {
-			log.Printf("[ERROR] failed to execute command: %+v", err)
+		// commands implements CommonOptionsCommander to allow passing set of extra options defined for all commands
+		c := command.(cmd.CommonOptionsCommander)
+		c.SetCommon(cmd.CommonOpts{
+			Version: version,
+			Logger:  logger,
+		})
+
+		if err := command.Execute(args); err != nil {
+			logger.Printf("[ERROR] failed to execute command: %+v", err)
 		}
 		return nil
 	}
@@ -42,7 +50,7 @@ func main() {
 	}
 }
 
-func setupLog(dbg bool) {
+func setupLog(dbg bool) logx.Logger {
 	filter := &logutils.LevelFilter{
 		Levels:   []logutils.LogLevel{"DEBUG", "INFO", "WARN", "ERROR"},
 		MinLevel: "INFO",
@@ -56,6 +64,5 @@ func setupLog(dbg bool) {
 		filter.MinLevel = "DEBUG"
 	}
 
-	log.SetFlags(logFlags)
-	log.SetOutput(filter)
+	return logx.Std(log.New(filter, "", logFlags), []string{"DEBUG", "INFO", "WARN", "ERROR"})
 }

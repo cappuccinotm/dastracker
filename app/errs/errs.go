@@ -51,11 +51,17 @@ func (e ErrActionNotSupported) Error() string {
 
 // ErrGithubAPI describes any error responded by the Github API.
 type ErrGithubAPI struct {
-	ResponseStatus int
+	ResponseStatus int    `json:"-"`
 	Message        string `json:"message"`
+	Errors         []struct {
+		Code     string `json:"code"`
+		Message  string `json:"message"`
+		Resource string `json:"resource"`
+	} `json:"errors"`
 }
 
 // Error returns the string representation of the error.
 func (e ErrGithubAPI) Error() string {
-	return fmt.Sprintf("github api responded error with status %d, message: %s", e.ResponseStatus, e.Message)
+	return fmt.Sprintf("github api responded error with status %d, message: %s, errors: %+v",
+		e.ResponseStatus, e.Message, e.Errors)
 }

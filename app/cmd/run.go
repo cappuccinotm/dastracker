@@ -18,7 +18,6 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store/service"
 	"github.com/cappuccinotm/dastracker/app/tracker"
 	"github.com/cappuccinotm/dastracker/app/webhook"
-	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/gorilla/mux"
 	bolt "go.etcd.io/bbolt"
 )
@@ -38,6 +37,7 @@ type Run struct {
 		Addr    string `long:"addr" env:"ADDR" description:"local address to listen"`
 	} `group:"webhook" namespace:"webhook" env-namespace:"WEBHOOK"`
 	UpdateTimeout time.Duration `long:"update_timeout" env:"UPDATE_TIMEOUT" description:"amount of time per processing single update"`
+	CommonOpts
 }
 
 // Execute runs the command
@@ -47,19 +47,17 @@ func (r Run) Execute(_ []string) error {
 		return fmt.Errorf("prepare flow storage: %w", err)
 	}
 
-	logger := logx.Std(log.Default())
-
 	ticketsStore, err := r.prepareTicketsStore()
 	if err != nil {
 		return fmt.Errorf("initialize tickets store: %w", err)
 	}
 
-	webhooksManager, err := r.prepareWebhookManager(logger)
+	webhooksManager, err := r.prepareWebhookManager()
 	if err != nil {
 		return fmt.Errorf("initialize webhooks manager: %w", err)
 	}
 
-	trackers, err := r.prepareTrackers(logger, flowStore, webhooksManager)
+	trackers, err := r.prepareTrackers(flowStore, webhooksManager)
 	if err != nil {
 		return fmt.Errorf("prepare trackers: %w", err)
 	}
@@ -68,7 +66,7 @@ func (r Run) Execute(_ []string) error {
 		Trackers:      trackers,
 		TicketsStore:  ticketsStore,
 		Flow:          flowStore,
-		Log:           logger.Sub("actor: "),
+		Log:           r.Logger.Sub("[actor]: "),
 		UpdateTimeout: r.UpdateTimeout,
 	}
 
@@ -92,16 +90,16 @@ func (r Run) prepareFlowStore() (flow.Interface, error) {
 	return flow.NewStatic(r.ConfLocation)
 }
 
-func (r Run) prepareWebhookManager(logger logx.Logger) (webhook.Interface, error) {
+func (r Run) prepareWebhookManager() (webhook.Interface, error) {
 	webhooksStore, err := r.prepareWebhooksStore()
 	if err != nil {
 		return nil, fmt.Errorf("initialize webhooks store: %w", err)
 	}
 
-	return webhook.NewManager(r.Webhook.BaseURL, mux.NewRouter(), webhooksStore, logger.Sub("webhook_manager: ")), nil
+	return webhook.NewManager(r.Webhook.BaseURL, mux.NewRouter(), webhooksStore, r.Logger.Sub("[webhook_manager]: ")), nil
 }
 
-func (r Run) prepareTrackers(logger logx.Logger, flowStore flow.Interface, whm webhook.Interface) (map[string]tracker.Interface, error) {
+func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) (map[string]tracker.Interface, error) {
 	trackers, err := flowStore.ListTrackers(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("get trackers configs: %w", err)
@@ -113,7 +111,7 @@ func (r Run) prepareTrackers(logger logx.Logger, flowStore flow.Interface, whm w
 			return nil, fmt.Errorf("evaluate variables for tracker %q: %w", trk.Name, err)
 		}
 
-		sublogger := logger.Sub(fmt.Sprintf("tracker[%s]: ", trk.Name))
+		sublogger := r.Logger.Sub(fmt.Sprintf("[tracker|%s]: ", trk.Name))
 
 		switch trk.Driver {
 		case "rpc":
