@@ -134,14 +134,14 @@ func (g *Github) issue(ctx context.Context, method, id string, vars lib.Vars) (r
 	}
 
 	var respBody struct {
-		ID string `json:"id"`
+		ID int64 `json:"id"`
 	}
 
 	if err = json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		return "", fmt.Errorf("unmarshal created issue's id: %w", err)
 	}
 
-	return respBody.ID, nil
+	return strconv.FormatInt(respBody.ID, 10), nil
 }
 
 // Subscribe sends a request to github for webhook and sets a handler for that webhook.
@@ -195,14 +195,14 @@ func (g *Github) Subscribe(ctx context.Context, req SubscribeReq) error {
 	}
 
 	var respBody struct {
-		ID string `json:"id"`
+		ID int64 `json:"id"`
 	}
 
 	if err = json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		return fmt.Errorf("unmarshal created issue's id: %w", err)
 	}
 
-	if err = g.whm.SetTrackerID(ctx, wh.ID, respBody.ID); err != nil {
+	if err = g.whm.SetTrackerID(ctx, wh.ID, strconv.FormatInt(respBody.ID, 10)); err != nil {
 		return fmt.Errorf("set github's webhook id %q: %w", respBody.ID, err)
 	}
 

@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,8 +17,8 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store/service"
 	"github.com/cappuccinotm/dastracker/app/tracker"
 	"github.com/cappuccinotm/dastracker/app/webhook"
-	"github.com/gorilla/mux"
 	bolt "go.etcd.io/bbolt"
+	"golang.org/x/sync/errgroup"
 )
 
 // Run starts a tracker listener.
@@ -70,17 +69,29 @@ func (r Run) Execute(_ []string) error {
 		UpdateTimeout: r.UpdateTimeout,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() { // catch signal and invoke graceful termination
+	eg, ctx := errgroup.WithContext(context.Background())
+	eg.Go(func() error {
 		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 		<-stop
-		log.Printf("[WARN] interrupt signal")
-		cancel()
-	}()
+		r.Logger.Printf("[WARN] interrupt signal")
+		return fmt.Errorf("interrupted")
+	})
+	eg.Go(func() error {
+		if err := actor.Listen(ctx); err != nil {
+			return fmt.Errorf("actor stopped listening, reason: %w", err)
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		if err := webhooksManager.Listen(ctx); err != nil {
+			return fmt.Errorf("webhook server stopped running, reason: %w", err)
+		}
+		return nil
+	})
 
-	if err = actor.Listen(ctx); err != nil {
-		return fmt.Errorf("listen stopped, reason: %w", err)
+	if err = eg.Wait(); err != nil {
+		return err
 	}
 
 	return nil
@@ -96,7 +107,7 @@ func (r Run) prepareWebhookManager() (webhook.Interface, error) {
 		return nil, fmt.Errorf("initialize webhooks store: %w", err)
 	}
 
-	return webhook.NewManager(r.Webhook.BaseURL, mux.NewRouter(), webhooksStore, r.Logger.Sub("[webhook_manager]: ")), nil
+	return webhook.NewManager(r.Webhook.BaseURL, r.Webhook.Addr, webhooksStore, r.Logger.Sub("[webhook_manager]: ")), nil
 }
 
 func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) (map[string]tracker.Interface, error) {

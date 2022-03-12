@@ -23,6 +23,7 @@ type Interface interface {
 	// List returns all webhooks if tracker = ""
 	List(ctx context.Context, tracker string) ([]store.Webhook, error)
 	Delete(ctx context.Context, webhookID string) error
+	Listen(ctx context.Context) error
 }
 
 // Manager creates a webhook with specified handler on it and
@@ -31,14 +32,15 @@ type Manager struct {
 	baseURL string
 	r       *mux.Router
 	l       logx.Logger
+	addr    string
 
 	registeredHandlers []string
 	store              engine.Webhooks
 }
 
 // NewManager makes new instance of Manager.
-func NewManager(baseURL string, r *mux.Router, store engine.Webhooks, l logx.Logger) *Manager {
-	svc := &Manager{baseURL: baseURL, r: r, store: store, l: l}
+func NewManager(baseURL, addr string, store engine.Webhooks, l logx.Logger) *Manager {
+	svc := &Manager{baseURL: baseURL, r: mux.NewRouter(), store: store, l: l, addr: addr}
 
 	// todo load webhooks from storage
 
@@ -118,6 +120,21 @@ func (m *Manager) Delete(ctx context.Context, webhookID string) error {
 // List proxies the call to the wrapped store.
 func (m *Manager) List(ctx context.Context, tracker string) ([]store.Webhook, error) {
 	return m.store.List(ctx, tracker)
+}
+
+// Listen starts the webhook server.
+func (m *Manager) Listen(ctx context.Context) error {
+	srv := &http.Server{Addr: m.addr, Handler: m.r}
+	if err := srv.ListenAndServe(); err != nil {
+		return err
+	}
+	go func() {
+		<-ctx.Done()
+		if err := srv.Shutdown(context.Background()); err != nil {
+			m.l.Printf("[WARN] failed to shutdown webhook server: %v", err)
+		}
+	}()
+	return nil
 }
 
 func (m *Manager) registered(name string) bool {

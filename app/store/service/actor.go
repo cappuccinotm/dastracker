@@ -103,8 +103,6 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 	ticket.Patch(upd)
 
 	for _, act := range job.Actions {
-		s.Log.Printf("[DEBUG] running action %s with vars %+v", act.Name, act.With)
-
 		// TODO(semior): add support of detached calls
 		vars, err := store.Evaluate(act.With, upd)
 		if err != nil {
@@ -113,6 +111,7 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 
 		trkName, method := parseMethodURI(act.Name)
 
+		s.Log.Printf("[DEBUG] running action %s with vars %+v", act.Name, vars)
 		resp, err := s.Trackers[trkName].Call(ctx, tracker.Request{
 			Method: method,
 			Ticket: ticket,
@@ -121,6 +120,7 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 		if err != nil {
 			return fmt.Errorf("call to %s: %w", act.Name, err)
 		}
+		s.Log.Printf("[DEBUG] received response from tracker %s on action %s: %v", trkName, act.Name, resp)
 
 		ticket.TrackerIDs.Set(trkName, resp.TaskID)
 	}

@@ -22,7 +22,7 @@ triggers:
   - name: gh_task_updated
     in: gh_dastracker
     with:
-      events: "issue"
+      events: "issues"
 
 jobs:
   - name: print task update if task is received

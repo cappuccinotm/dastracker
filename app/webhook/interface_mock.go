@@ -30,6 +30,9 @@ var _ Interface = &InterfaceMock{}
 //             ListFunc: func(ctx context.Context, tracker string) ([]store.Webhook, error) {
 // 	               panic("mock out the List method")
 //             },
+//             ListenFunc: func(ctx context.Context) error {
+// 	               panic("mock out the Listen method")
+//             },
 //             RegisterFunc: func(name string, handler http.Handler) error {
 // 	               panic("mock out the Register method")
 //             },
@@ -51,6 +54,9 @@ type InterfaceMock struct {
 
 	// ListFunc mocks the List method.
 	ListFunc func(ctx context.Context, tracker string) ([]store.Webhook, error)
+
+	// ListenFunc mocks the Listen method.
+	ListenFunc func(ctx context.Context) error
 
 	// RegisterFunc mocks the Register method.
 	RegisterFunc func(name string, handler http.Handler) error
@@ -83,6 +89,11 @@ type InterfaceMock struct {
 			// Tracker is the tracker argument value.
 			Tracker string
 		}
+		// Listen holds details about calls to the Listen method.
+		Listen []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+		}
 		// Register holds details about calls to the Register method.
 		Register []struct {
 			// Name is the name argument value.
@@ -103,6 +114,7 @@ type InterfaceMock struct {
 	lockCreate       sync.RWMutex
 	lockDelete       sync.RWMutex
 	lockList         sync.RWMutex
+	lockListen       sync.RWMutex
 	lockRegister     sync.RWMutex
 	lockSetTrackerID sync.RWMutex
 }
@@ -213,6 +225,37 @@ func (mock *InterfaceMock) ListCalls() []struct {
 	mock.lockList.RLock()
 	calls = mock.calls.List
 	mock.lockList.RUnlock()
+	return calls
+}
+
+// Listen calls ListenFunc.
+func (mock *InterfaceMock) Listen(ctx context.Context) error {
+	if mock.ListenFunc == nil {
+		panic("InterfaceMock.ListenFunc: method is nil but Interface.Listen was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+	}{
+		Ctx: ctx,
+	}
+	mock.lockListen.Lock()
+	mock.calls.Listen = append(mock.calls.Listen, callInfo)
+	mock.lockListen.Unlock()
+	return mock.ListenFunc(ctx)
+}
+
+// ListenCalls gets all the calls that were made to Listen.
+// Check the length with:
+//     len(mockedInterface.ListenCalls())
+func (mock *InterfaceMock) ListenCalls() []struct {
+	Ctx context.Context
+} {
+	var calls []struct {
+		Ctx context.Context
+	}
+	mock.lockListen.RLock()
+	calls = mock.calls.Listen
+	mock.lockListen.RUnlock()
 	return calls
 }
 
