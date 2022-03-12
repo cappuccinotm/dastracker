@@ -48,7 +48,7 @@ func TestJSONRPC_Call(t *testing.T) {
 			req, ok := args.(lib.Request)
 			assert.True(t, ok)
 
-			assert.Equal(t, "jrpc.some-method", serviceMethod)
+			assert.Equal(t, "plugin.some-method", serviceMethod)
 			*resp = lib.Response{TaskID: "task-id"}
 			assert.Equal(t, lib.Request{
 				Ticket: lib.Ticket{
@@ -96,7 +96,7 @@ func TestJSONRPC_Subscribe(t *testing.T) {
 				req, ok := args.(SubscribeReq)
 				assert.True(t, ok)
 
-				assert.Equal(t, "jrpc.Subscribe", serviceMethod)
+				assert.Equal(t, "plugin.Subscribe", serviceMethod)
 				assert.Equal(t, SubscribeReq{
 					TriggerName: "trigger",
 					Vars: map[string]string{

@@ -93,7 +93,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 				Milestone: "milestone",
 			}, resp)
 
-			_, err = w.Write([]byte(`{"id": "assigned-id"}`))
+			_, err = w.Write([]byte(`{"id": 123}`))
 			require.NoError(t, err)
 			called = true
 		})
@@ -109,7 +109,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "assigned-id", resp.TaskID)
+		assert.Equal(t, "123", resp.TaskID)
 		assert.True(t, called)
 	})
 
@@ -159,7 +159,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 	t.Run("update", func(t *testing.T) {
 		called := false
 		svc, _ := prepareGithubTestEnv(t, func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, r.URL.Path, "/repos/repo-owner/repo-name/issues/assigned-id")
+			assert.Equal(t, r.URL.Path, "/repos/repo-owner/repo-name/issues/123")
 			assert.Equal(t, r.Method, "PATCH")
 			b, err := io.ReadAll(r.Body)
 			require.NoError(t, err)
@@ -174,14 +174,14 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 				Milestone: "milestone",
 			}, resp)
 
-			_, err = w.Write([]byte(`{"id": "assigned-id"}`))
+			_, err = w.Write([]byte(`{"id": 123}`))
 			require.NoError(t, err)
 			called = true
 		})
 
 		resp, err := svc.Call(context.Background(), Request{
 			Method: "UpdateOrCreateIssue",
-			Ticket: store.Ticket{TrackerIDs: map[string]string{"name": "assigned-id"}},
+			Ticket: store.Ticket{TrackerIDs: map[string]string{"name": "123"}},
 			Vars: lib.Vars{
 				"title":     "title",
 				"body":      "body",
@@ -190,7 +190,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "assigned-id", resp.TaskID)
+		assert.Equal(t, "123", resp.TaskID)
 		assert.True(t, called)
 	})
 }
@@ -228,7 +228,7 @@ func TestGithub_Subscribe(t *testing.T) {
 			}, req)
 
 			w.WriteHeader(http.StatusCreated)
-			_, err = w.Write([]byte(`{"id": "assigned-id"}`))
+			_, err = w.Write([]byte(`{"id": 123}`))
 			require.NoError(t, err)
 			called = true
 		})
@@ -246,7 +246,7 @@ func TestGithub_Subscribe(t *testing.T) {
 
 		whm.SetTrackerIDFunc = func(ctx context.Context, webhookID string, trackerID string) error {
 			assert.Equal(t, "webhook-id", webhookID)
-			assert.Equal(t, "assigned-id", trackerID)
+			assert.Equal(t, "123", trackerID)
 			return nil
 		}
 

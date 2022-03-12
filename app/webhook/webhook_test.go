@@ -80,7 +80,7 @@ func TestNewManager(t *testing.T) {
 
 	m := NewManager(
 		"blah",
-		mux.NewRouter(),
+		"",
 		eng,
 		&logx.LoggerMock{
 			PrintfFunc: func(f string, args ...interface{}) {
