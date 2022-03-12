@@ -6,11 +6,11 @@ import (
 	"log"
 	"net"
 	"net/rpc"
+	"net/rpc/jsonrpc"
 )
 
 // Plugin provides methods to start listener and register RPC methods.
 type Plugin struct {
-	Name             string
 	Address          string
 	SubscribeHandler func(req SubscribeReq) error
 }
@@ -20,10 +20,10 @@ func (p *Plugin) Listen(ctx context.Context, rcvr interface{}) (err error) {
 	ctxCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	if err = rpc.RegisterName(p.Name, rcvr); err != nil {
-		return fmt.Errorf("can't register plugin %s: %v", p.Name, err)
+	if err = rpc.RegisterName("plugin", rcvr); err != nil {
+		return fmt.Errorf("can't register plugin: %v", err)
 	}
-	log.Printf("[INFO] register rpc %s:%s", p.Name, p.Address)
+	log.Printf("[INFO] register rpc on address %s", p.Address)
 
 	return p.listen(ctxCancel)
 }
@@ -52,16 +52,19 @@ func (p *Plugin) listen(ctx context.Context) error {
 	}()
 
 	for {
-		log.Printf("[DEBUG] plugin listener for %s:%s activated", p.Name, p.Address)
 		conn, err := listener.Accept()
 		if err != nil {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			default:
-				return fmt.Errorf("accept failed for %s: %v", p.Name, err)
+				return fmt.Errorf("accept failed for: %v", err)
 			}
 		}
-		go rpc.ServeConn(conn)
+		go func() {
+			log.Printf("[INFO] accepted connection from %s", conn.RemoteAddr().String())
+			jsonrpc.ServeConn(conn)
+			log.Printf("[INFO] stopped to serve connection from %s", conn.RemoteAddr().String())
+		}()
 	}
 }
