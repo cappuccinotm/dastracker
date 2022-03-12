@@ -22,6 +22,10 @@ func main() {
 			log.Printf("[INFO] requested subscription with webhook on %s", req.WebhookURL())
 			return nil
 		},
+		UnsubscribeHandler: func(req lib.UnsubscribeReq) error {
+			log.Printf("[INFO] requested unsubscription")
+			return nil
+		},
 	}
 	if err := pl.Listen(context.Background(), &Handler{}); err != nil {
 		log.Printf("[WARN] listener stopped, reason: %v", err)

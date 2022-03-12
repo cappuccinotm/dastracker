@@ -83,7 +83,9 @@ func (rpc *JSONRPC) Subscribe(ctx context.Context, req SubscribeReq) error {
 }
 
 // Unsubscribe sends unsubscribe call to the remote JSONRPC server.
-func (rpc *JSONRPC) Unsubscribe(ctx context.Context, req SubscribeReq) error { return nil }
+func (rpc *JSONRPC) Unsubscribe(ctx context.Context, req UnsubscribeReq) error {
+	panic("implement me")
+}
 
 func (rpc *JSONRPC) whHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -30,7 +30,7 @@ var _ Interface = &InterfaceMock{}
 //             SubscribeFunc: func(ctx context.Context, req SubscribeReq) error {
 // 	               panic("mock out the Subscribe method")
 //             },
-//             UnsubscribeFunc: func(ctx context.Context, req SubscribeReq) error {
+//             UnsubscribeFunc: func(ctx context.Context, req UnsubscribeReq) error {
 // 	               panic("mock out the Unsubscribe method")
 //             },
 //         }
@@ -53,7 +53,7 @@ type InterfaceMock struct {
 	SubscribeFunc func(ctx context.Context, req SubscribeReq) error
 
 	// UnsubscribeFunc mocks the Unsubscribe method.
-	UnsubscribeFunc func(ctx context.Context, req SubscribeReq) error
+	UnsubscribeFunc func(ctx context.Context, req UnsubscribeReq) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -86,7 +86,7 @@ type InterfaceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Req is the req argument value.
-			Req SubscribeReq
+			Req UnsubscribeReq
 		}
 	}
 	lockCall        sync.RWMutex
@@ -228,13 +228,13 @@ func (mock *InterfaceMock) SubscribeCalls() []struct {
 }
 
 // Unsubscribe calls UnsubscribeFunc.
-func (mock *InterfaceMock) Unsubscribe(ctx context.Context, req SubscribeReq) error {
+func (mock *InterfaceMock) Unsubscribe(ctx context.Context, req UnsubscribeReq) error {
 	if mock.UnsubscribeFunc == nil {
 		panic("InterfaceMock.UnsubscribeFunc: method is nil but Interface.Unsubscribe was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Req SubscribeReq
+		Req UnsubscribeReq
 	}{
 		Ctx: ctx,
 		Req: req,
@@ -250,11 +250,11 @@ func (mock *InterfaceMock) Unsubscribe(ctx context.Context, req SubscribeReq) er
 //     len(mockedInterface.UnsubscribeCalls())
 func (mock *InterfaceMock) UnsubscribeCalls() []struct {
 	Ctx context.Context
-	Req SubscribeReq
+	Req UnsubscribeReq
 } {
 	var calls []struct {
 		Ctx context.Context
-		Req SubscribeReq
+		Req UnsubscribeReq
 	}
 	mock.lockUnsubscribe.RLock()
 	calls = mock.calls.Unsubscribe

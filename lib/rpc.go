@@ -30,3 +30,8 @@ type SubscribeReq struct {
 
 // WebhookURL returns the url of the webhook, provided by dastracker.
 func (r SubscribeReq) WebhookURL() string { return r.Vars.Get(URLKey) }
+
+// UnsubscribeReq describes parameters of the unsubscription from task updates.
+type UnsubscribeReq struct {
+	Vars Vars `json:"vars"`
+}

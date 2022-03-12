@@ -221,8 +221,8 @@ func (g *Github) handleUnexpectedStatus(resp *http.Response) error {
 }
 
 // Unsubscribe removes the webhook from github and removes the handler for that webhook.
-func (g *Github) Unsubscribe(ctx context.Context, req SubscribeReq) error {
-	panic("unimplemented")
+func (g *Github) Unsubscribe(ctx context.Context, req UnsubscribeReq) error {
+	panic("implement me")
 }
 
 func (g *Github) whHandler(w http.ResponseWriter, r *http.Request) {

@@ -11,8 +11,9 @@ import (
 
 // Plugin provides methods to start listener and register RPC methods.
 type Plugin struct {
-	Address          string
-	SubscribeHandler func(req SubscribeReq) error
+	Address            string
+	SubscribeHandler   func(req SubscribeReq) error
+	UnsubscribeHandler func(req UnsubscribeReq) error
 }
 
 // Listen starts RPC server and listens for incoming connections.
@@ -36,6 +37,16 @@ func (p *Plugin) Subscribe(req SubscribeReq, _ *struct{}) error {
 	}
 
 	return p.SubscribeHandler(req)
+}
+
+// Unsubscribe implements Unsubscribe RPC handler and calls the handler for
+// subscription, if it is set.
+func (p *Plugin) Unsubscribe(req UnsubscribeReq, _ *struct{}) error {
+	if p.UnsubscribeHandler == nil {
+		return nil
+	}
+
+	return p.UnsubscribeHandler(req)
 }
 
 func (p *Plugin) listen(ctx context.Context) error {

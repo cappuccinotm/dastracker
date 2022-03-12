@@ -25,7 +25,7 @@ type Interface interface {
 	Subscribe(ctx context.Context, req SubscribeReq) error
 
 	// Unsubscribe removes the trigger from the tracker.
-	Unsubscribe(ctx context.Context, req SubscribeReq) error
+	Unsubscribe(ctx context.Context, req UnsubscribeReq) error
 
 	// Listen runs the tracker's listener.
 	// When the app is shutting down (ctx is canceled),
@@ -47,6 +47,12 @@ type Response struct {
 
 // SubscribeReq describes parameters of the subscription for task updates.
 type SubscribeReq struct {
+	TriggerName string
+	Vars        lib.Vars
+}
+
+// UnsubscribeReq describes parameters for the unsubscription from task updates.
+type UnsubscribeReq struct {
 	TriggerName string
 	Vars        lib.Vars
 }
