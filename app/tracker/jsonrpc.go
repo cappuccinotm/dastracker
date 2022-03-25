@@ -84,15 +84,24 @@ func (rpc *JSONRPC) Unsubscribe(ctx context.Context, req UnsubscribeReq) error {
 func (rpc *JSONRPC) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var upd store.Update
-	if err := json.NewDecoder(r.Body).Decode(&upd); err != nil {
+	var ticket lib.Ticket
+	if err := json.NewDecoder(r.Body).Decode(&ticket); err != nil {
 		rpc.l.Printf("[WARN] failed to decode webhook update: %v", err)
 		return
 	}
 
-	upd.ReceivedFrom.Tracker = rpc.name
-
-	rpc.handler.Handle(ctx, upd)
+	rpc.handler.Handle(ctx, store.Update{
+		URL: ticket.URL,
+		ReceivedFrom: store.Locator{
+			Tracker: rpc.name,
+			ID:      ticket.TaskID,
+		},
+		Content: store.Content{
+			Body:   ticket.Body,
+			Title:  ticket.Title,
+			Fields: ticket.Fields,
+		},
+	})
 	w.WriteHeader(http.StatusOK)
 }
 

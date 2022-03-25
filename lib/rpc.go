@@ -9,7 +9,7 @@ type Request struct {
 
 // Ticket describes an updated task representation in dastracker.
 type Ticket struct {
-	ID     string            `json:"id"`
+	URL    string            `json:"url"`
 	TaskID string            `json:"task_id"`
 	Title  string            `json:"title"`
 	Body   string            `json:"body"`

@@ -8,11 +8,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"bytes"
 	"github.com/cappuccinotm/dastracker/app/errs"
+	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
+	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"time"
 )
 
 func prepareGithub(t *testing.T, handlerFunc http.HandlerFunc) *Github {
@@ -226,4 +230,46 @@ func TestGithub_Subscribe(t *testing.T) {
 		assert.True(t, called)
 		assert.Equal(t, resp, SubscribeResp{TrackerRef: "123"})
 	})
+}
+
+func TestGithub_HandleWebhook(t *testing.T) {
+	called := sign.Signal()
+	svc := &Github{
+		l: logx.Nop(),
+		handler: HandlerFunc(func(ctx context.Context, update store.Update) {
+			assert.Equal(t, store.Update{
+				URL: "update-url",
+				ReceivedFrom: store.Locator{
+					Tracker: "tracker",
+					ID:      "12345",
+				},
+				Content: store.Content{
+					Body:   "body",
+					Title:  "title",
+					Fields: nil, // todo
+				},
+			}, update)
+			called.Done()
+		}),
+		name: "tracker",
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(svc.HandleWebhook))
+	defer ts.Close()
+
+	b := []byte(`{
+		"action": "some action",
+		"issue": {
+			"number": 12345,
+			"title": "title",
+			"description": "body",
+			"url": "update-url"
+		}
+	}`)
+
+	resp, err := ts.Client().Post(ts.URL, "application/json", bytes.NewReader(b))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	require.NoError(t, called.WaitTimeout(5*time.Second))
 }

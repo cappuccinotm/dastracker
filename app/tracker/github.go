@@ -207,7 +207,7 @@ func (g *Github) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	var ghUpdate struct {
 		Action string `json:"action"`
 		Issue  struct {
-			ID          int    `json:"number"`
+			ID          int64  `json:"number"`
 			Title       string `json:"title"`
 			Description string `json:"description"`
 			URL         string `json:"url"`
@@ -220,8 +220,11 @@ func (g *Github) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	upd := store.Update{
-		URL:          ghUpdate.Issue.URL,
-		ReceivedFrom: store.Locator{Tracker: g.name, ID: strconv.Itoa(ghUpdate.Issue.ID)},
+		URL: ghUpdate.Issue.URL,
+		ReceivedFrom: store.Locator{
+			Tracker: g.name,
+			ID:      strconv.FormatInt(ghUpdate.Issue.ID, 10),
+		},
 		Content: store.Content{
 			Body:   ghUpdate.Issue.Description,
 			Title:  ghUpdate.Issue.Title,

@@ -54,6 +54,7 @@ func NewSubscription(fileName string, options bolt.Options) (*Subscriptions, err
 func (b *Subscriptions) Create(ctx context.Context, wh store.Subscription) (string, error) {
 	wh.ID = uuid.NewString()
 
+	// todo check for the same tracker/trigger pair, must be unique
 	if err := b.Update(ctx, wh); err != nil {
 		return "", fmt.Errorf("put subscription into storage: %w", err)
 	}

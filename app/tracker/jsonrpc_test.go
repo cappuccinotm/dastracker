@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"testing"
 
+	"bytes"
+	"encoding/json"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
@@ -14,6 +16,7 @@ import (
 	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"time"
 )
 
 func TestNewJSONRPC(t *testing.T) {
@@ -85,6 +88,25 @@ func TestJSONRPC_Subscribe(t *testing.T) {
 	assert.Equal(t, SubscribeResp{TrackerRef: "tracker-ref"}, resp)
 }
 
+func TestJSONRPC_Unsubscribe(t *testing.T) {
+	svc := &JSONRPC{
+		name: "jrpc",
+		cl: &rpcx.ClientMock{
+			CallFunc: func(ctx context.Context, serviceMethod string, args, reply interface{}) error {
+				req, ok := args.(lib.UnsubscribeReq)
+				assert.True(t, ok)
+
+				assert.Equal(t, "plugin.Unsubscribe", serviceMethod)
+				assert.Equal(t, lib.UnsubscribeReq{TrackerRef: "tracker-ref"}, req)
+				return nil
+			},
+		},
+	}
+
+	err := svc.Unsubscribe(context.Background(), UnsubscribeReq{TrackerRef: "tracker-ref"})
+	require.NoError(t, err)
+}
+
 func TestJSONRPC_Listen(t *testing.T) {
 	svc := &JSONRPC{}
 
@@ -98,4 +120,43 @@ func TestJSONRPC_Listen(t *testing.T) {
 	svc.handler.Handle(context.Background(), store.Update{})
 
 	assert.True(t, handlerProvided.Signaled())
+}
+
+func TestJSONRPC_HandleWebhook(t *testing.T) {
+	called := sign.Signal()
+	svc := &JSONRPC{
+		name: "tracker",
+		handler: HandlerFunc(func(ctx context.Context, update store.Update) {
+			assert.Equal(t, store.Update{
+				URL: "update-url",
+				ReceivedFrom: store.Locator{
+					Tracker: "tracker",
+					ID:      "task-id",
+				},
+				Content: store.Content{
+					Body:   "body",
+					Title:  "title",
+					Fields: map[string]string{"somefield": "somevalue"},
+				},
+			}, update)
+			called.Done()
+		}),
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(svc.HandleWebhook))
+	defer ts.Close()
+
+	b, err := json.Marshal(lib.Ticket{
+		URL:    "update-url",
+		TaskID: "task-id",
+		Title:  "title",
+		Body:   "body",
+		Fields: map[string]string{"somefield": "somevalue"},
+	})
+	require.NoError(t, err)
+
+	resp, err := ts.Client().Post(ts.URL, "application/json", bytes.NewReader(b))
+	require.NoError(t, err)
+	assert.Equal(t, resp.StatusCode, http.StatusOK)
+	require.NoError(t, called.WaitTimeout(5*time.Second))
 }
