@@ -72,7 +72,12 @@ func (rpc *JSONRPC) Subscribe(ctx context.Context, req SubscribeReq) (SubscribeR
 
 // Unsubscribe sends unsubscribe call to the remote JSONRPC server.
 func (rpc *JSONRPC) Unsubscribe(ctx context.Context, req UnsubscribeReq) error {
-	panic("implement me")
+	if err := rpc.cl.Call(ctx, "plugin.Unsubscribe", lib.UnsubscribeReq{
+		TrackerRef: req.TrackerRef,
+	}, &struct{}{}); err != nil {
+		return fmt.Errorf("call remote Unsubscribe: %w", err)
+	}
+	return nil
 }
 
 // HandleWebhook handles webhook call from the remote JSONRPC server.

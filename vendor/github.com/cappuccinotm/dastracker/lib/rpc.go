@@ -34,6 +34,5 @@ type SubscribeResp struct {
 
 // UnsubscribeReq describes parameters of the unsubscription from task updates.
 type UnsubscribeReq struct {
-	WebhookID string `json:"webhookID"`
-	Vars      Vars   `json:"vars"`
+	TrackerRef string `json:"tracker_ref"`
 }
