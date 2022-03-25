@@ -14,22 +14,22 @@ var _ Client = &ClientMock{}
 
 // ClientMock is a mock implementation of Client.
 //
-//     func TestSomethingThatUsesClient(t *testing.T) {
+// 	func TestSomethingThatUsesClient(t *testing.T) {
 //
-//         // make and configure a mocked Client
-//         mockedClient := &ClientMock{
-//             CallFunc: func(ctx context.Context, serviceMethod string, args interface{}, reply interface{}) error {
-// 	               panic("mock out the Call method")
-//             },
-//             CloseFunc: func() error {
-// 	               panic("mock out the Close method")
-//             },
-//         }
+// 		// make and configure a mocked Client
+// 		mockedClient := &ClientMock{
+// 			CallFunc: func(ctx context.Context, serviceMethod string, args interface{}, reply interface{}) error {
+// 				panic("mock out the Call method")
+// 			},
+// 			CloseFunc: func() error {
+// 				panic("mock out the Close method")
+// 			},
+// 		}
 //
-//         // use mockedClient in code that requires Client
-//         // and then make assertions.
+// 		// use mockedClient in code that requires Client
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type ClientMock struct {
 	// CallFunc mocks the Call method.
 	CallFunc func(ctx context.Context, serviceMethod string, args interface{}, reply interface{}) error

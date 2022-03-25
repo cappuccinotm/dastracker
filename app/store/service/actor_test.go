@@ -2,88 +2,15 @@ package service
 
 import (
 	"context"
-	"reflect"
-	"runtime"
-	"sync"
-	"testing"
-	"time"
-
 	"github.com/cappuccinotm/dastracker/app/errs"
-	"github.com/cappuccinotm/dastracker/app/flow"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	"github.com/cappuccinotm/dastracker/app/tracker"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
-	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
-
-func TestActor_Listen(t *testing.T) {
-	getFuncName := func(i interface{}) string {
-		return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
-	}
-
-	listenCalled := sign.Signal()
-
-	var handleUpdate tracker.Handler
-	hlock := &mutex{}
-	a := &Actor{
-		Trackers: map[string]tracker.Interface{
-			"blah": &tracker.InterfaceMock{
-				ListenFunc: func(ctx context.Context, h tracker.Handler) error {
-					listenCalled.Done()
-					hlock.WithLock(func() { handleUpdate = h })
-					<-ctx.Done()
-					return ctx.Err()
-				},
-				SubscribeFunc: func(ctx context.Context, req tracker.SubscribeReq) error {
-					assert.Equal(t, tracker.SubscribeReq{
-						TriggerName: "someTrigger",
-						Vars:        map[string]string{"foo": "bar"},
-					}, req)
-					return nil
-				},
-			},
-		},
-		Flow: &flow.InterfaceMock{
-			ListTriggersFunc: func(ctx context.Context) ([]store.Trigger, error) {
-				return []store.Trigger{{
-					Name:    "someTrigger",
-					Tracker: "blah",
-					With:    map[string]string{"foo": "bar"},
-				}}, nil
-			},
-		},
-		Log: logx.Nop(),
-	}
-
-	ctx, stop := context.WithCancel(context.Background())
-	closed := sign.Signal()
-	var closeErr error
-
-	go func() {
-		closeErr = a.Listen(ctx)
-		closed.Done()
-	}()
-
-	assert.NoError(t, listenCalled.WaitTimeout(time.Second), "listen call")
-	hlock.WithLock(func() {
-		assert.Equal(t, getFuncName(a.handleUpdate), getFuncName(handleUpdate))
-	})
-	stop()
-
-	assert.NoError(t, closed.WaitTimeout(time.Second), "stop")
-	assert.ErrorIs(t, closeErr, context.Canceled)
-}
-
-type mutex sync.Mutex
-
-func (l *mutex) WithLock(fn func()) {
-	(*sync.Mutex)(l).Lock()
-	fn()
-	(*sync.Mutex)(l).Unlock()
-}
 
 func TestActor_runJob(t *testing.T) {
 	t.Run("update of the existing ticket", func(t *testing.T) {
@@ -101,18 +28,7 @@ func TestActor_runJob(t *testing.T) {
 		}
 		expectedTrackerReq := tracker.Request{
 			Method: "create-or-update",
-			Ticket: store.Ticket{
-				ID: "ticket-id",
-				TrackerIDs: map[string]string{
-					"other-tracker": "other-id",
-					"tracker":       "task-id",
-				},
-				Content: store.Content{
-					Body:   "updated-body",
-					Title:  "updated-title",
-					Fields: map[string]string{"field": "updated-value"},
-				},
-			},
+			TaskID: "task-id",
 			Vars: map[string]string{
 				"msg":  "Task with id task-id has been updated",
 				"body": "Body: updated-body",
@@ -184,14 +100,6 @@ func TestActor_runJob(t *testing.T) {
 		}
 		expectedTrackerReq := tracker.Request{
 			Method: "create-or-update",
-			Ticket: store.Ticket{
-				TrackerIDs: map[string]string{"tracker": "task-id"},
-				Content: store.Content{
-					Body:   "updated-body",
-					Title:  "updated-title",
-					Fields: map[string]string{"field": "updated-value"},
-				},
-			},
 			Vars: map[string]string{
 				"msg":  "Task with id task-id has been updated",
 				"body": "Body: updated-body",

@@ -78,7 +78,6 @@ func (m TrackerIDs) Get(name string) string {
 
 // Update describes a ticket update.
 type Update struct {
-	TriggerName  string  `json:"trigger_name"`
 	URL          string  `json:"url"`
 	ReceivedFrom Locator `json:"received_from"`
 

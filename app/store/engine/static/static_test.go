@@ -1,4 +1,4 @@
-package flow
+package static
 
 import (
 	"io"
@@ -61,7 +61,7 @@ func TestNewStatic(t *testing.T) {
 
 		expectedSvc := &Static{
 			config: config{
-				Trackers: []Tracker{
+				Trackers: []store.Tracker{
 					{
 						Name:   "gh_dastracker",
 						Driver: "github",

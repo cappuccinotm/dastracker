@@ -10,13 +10,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cappuccinotm/dastracker/app/flow"
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/app/store/engine"
 	boltEngs "github.com/cappuccinotm/dastracker/app/store/engine/bolt"
+	"github.com/cappuccinotm/dastracker/app/store/engine/static"
 	"github.com/cappuccinotm/dastracker/app/store/service"
 	"github.com/cappuccinotm/dastracker/app/tracker"
-	"github.com/cappuccinotm/dastracker/app/webhook"
+	"github.com/gorilla/mux"
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/sync/errgroup"
 )
@@ -51,14 +51,22 @@ func (r Run) Execute(_ []string) error {
 		return fmt.Errorf("initialize tickets store: %w", err)
 	}
 
-	webhooksManager, err := r.prepareWebhookManager()
-	if err != nil {
-		return fmt.Errorf("initialize webhooks manager: %w", err)
-	}
-
-	trackers, err := r.prepareTrackers(flowStore, webhooksManager)
+	trackers, err := r.prepareTrackers(flowStore)
 	if err != nil {
 		return fmt.Errorf("prepare trackers: %w", err)
+	}
+
+	subStore, err := r.prepareSubscriptionsStore()
+	if err != nil {
+		return fmt.Errorf("prepare subscriptions store: %w", err)
+	}
+
+	subscriptionsManager := &service.SubscriptionsManager{
+		BaseURL: r.Webhook.BaseURL,
+		Router:  mux.NewRouter(),
+		Logger:  r.Logger.Sub("[subscriptions manager]: "),
+		Addr:    r.Webhook.Addr,
+		Store:   subStore,
 	}
 
 	actor := &service.Actor{
@@ -84,7 +92,7 @@ func (r Run) Execute(_ []string) error {
 		return nil
 	})
 	eg.Go(func() error {
-		if err := webhooksManager.Listen(ctx); err != nil {
+		if err := subscriptionsManager.Listen(ctx, http.HandlerFunc(actor.HandleWebhook)); err != nil {
 			return fmt.Errorf("webhook server stopped running, reason: %w", err)
 		}
 		return nil
@@ -97,20 +105,11 @@ func (r Run) Execute(_ []string) error {
 	return nil
 }
 
-func (r Run) prepareFlowStore() (flow.Interface, error) {
-	return flow.NewStatic(r.ConfLocation)
+func (r Run) prepareFlowStore() (engine.Flow, error) {
+	return static.NewStatic(r.ConfLocation)
 }
 
-func (r Run) prepareWebhookManager() (webhook.Interface, error) {
-	webhooksStore, err := r.prepareWebhooksStore()
-	if err != nil {
-		return nil, fmt.Errorf("initialize webhooks store: %w", err)
-	}
-
-	return webhook.NewManager(r.Webhook.BaseURL, r.Webhook.Addr, webhooksStore, r.Logger.Sub("[webhook_manager]: ")), nil
-}
-
-func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) (map[string]tracker.Interface, error) {
+func (r Run) prepareTrackers(flowStore engine.Flow) (map[string]tracker.Interface, error) {
 	trackers, err := flowStore.ListTrackers(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("get trackers configs: %w", err)
@@ -126,16 +125,15 @@ func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) (m
 
 		switch trk.Driver {
 		case "rpc":
-			if res[trk.Name], err = tracker.NewJSONRPC(trk.Name, sublogger, whm, trk.With); err != nil {
+			if res[trk.Name], err = tracker.NewJSONRPC(trk.Name, sublogger, trk.With); err != nil {
 				return nil, fmt.Errorf("initialize jsonrpc tracker %s: %w", trk.Name, err)
 			}
 		case "github":
 			if res[trk.Name], err = tracker.NewGithub(tracker.GithubParams{
-				Name:           trk.Name,
-				WebhookManager: whm,
-				Vars:           trk.With,
-				Client:         &http.Client{Timeout: 5 * time.Second},
-				Logger:         sublogger,
+				Name:   trk.Name,
+				Vars:   trk.With,
+				Client: &http.Client{Timeout: 5 * time.Second},
+				Logger: sublogger,
 			}); err != nil {
 				return nil, fmt.Errorf("initialize github tracker %s: %w", trk.Name, err)
 			}
@@ -147,14 +145,14 @@ func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) (m
 	return res, nil
 }
 
-func (r Run) prepareWebhooksStore() (engine.Webhooks, error) {
+func (r Run) prepareSubscriptionsStore() (engine.Subscriptions, error) {
 	switch r.Store.Type {
 	case "bolt":
-		webhooks, err := boltEngs.NewWebhook(path.Join(r.Store.Bolt.Path, "webhooks.db"), bolt.Options{Timeout: r.Store.Bolt.Timeout})
+		subscriptions, err := boltEngs.NewSubscription(path.Join(r.Store.Bolt.Path, "subscriptions.db"), bolt.Options{Timeout: r.Store.Bolt.Timeout})
 		if err != nil {
 			return nil, fmt.Errorf("initialize bolt store: %w", err)
 		}
-		return webhooks, nil
+		return subscriptions, nil
 	default:
 		return nil, fmt.Errorf("unsupported store type: %s", r.Store.Type)
 	}

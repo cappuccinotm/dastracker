@@ -13,28 +13,28 @@ import (
 )
 
 const (
-	webhooksBktName        = "webhooks"
+	subscriptionsBktName   = "subscriptions"
 	trackerToWhRefsBktName = "tracker_wh_refs"
 )
 
-// Webhooks implements engine.Webhooks over the BoltDB storage.
-// webhooks: key - webhookID, val - webhook
-// refs: key - reference, val - nested bucket with keys as webhookIDs and values as ts
-type Webhooks struct {
+// Subscriptions implements engine.Subscriptions over the BoltDB storage.
+// subscriptions: key - subscriptionID, val - subscription
+// refs: key - reference, val - nested bucket with keys as subscriptionIDs and values as ts
+type Subscriptions struct {
 	fileName string
 	db       *bolt.DB
 }
 
-// NewWebhook creates buckets and initial data processing
-func NewWebhook(fileName string, options bolt.Options) (*Webhooks, error) {
+// NewSubscription creates buckets and initial data processing
+func NewSubscription(fileName string, options bolt.Options) (*Subscriptions, error) {
 	db, err := bolt.Open(fileName, 0600, &options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make boltdb for %s: %w", fileName, err)
 	}
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		if _, err := tx.CreateBucketIfNotExists([]byte(webhooksBktName)); err != nil {
-			return fmt.Errorf("failed to create top-level bucket %s: %w", webhooksBktName, err)
+		if _, err := tx.CreateBucketIfNotExists([]byte(subscriptionsBktName)); err != nil {
+			return fmt.Errorf("failed to create top-level bucket %s: %w", subscriptionsBktName, err)
 		}
 
 		if _, err := tx.CreateBucketIfNotExists([]byte(trackerToWhRefsBktName)); err != nil {
@@ -47,23 +47,23 @@ func NewWebhook(fileName string, options bolt.Options) (*Webhooks, error) {
 		return nil, fmt.Errorf("failed to initialize boltdb buckets for %s: %w", fileName, err)
 	}
 
-	return &Webhooks{db: db, fileName: fileName}, nil
+	return &Subscriptions{db: db, fileName: fileName}, nil
 }
 
-// Create creates a webhook in the storage.
-func (b *Webhooks) Create(ctx context.Context, wh store.Webhook) (string, error) {
+// Create creates a subscription in the storage.
+func (b *Subscriptions) Create(ctx context.Context, wh store.Subscription) (string, error) {
 	wh.ID = uuid.NewString()
 
 	if err := b.Update(ctx, wh); err != nil {
-		return "", fmt.Errorf("put webhook into storage: %w", err)
+		return "", fmt.Errorf("put subscription into storage: %w", err)
 	}
 
 	return wh.ID, nil
 }
 
-// Get webhook by id.
-func (b *Webhooks) Get(_ context.Context, id string) (store.Webhook, error) {
-	var wh store.Webhook
+// Get subscription by id.
+func (b *Subscriptions) Get(_ context.Context, id string) (store.Subscription, error) {
+	var wh store.Subscription
 	err := b.db.View(func(tx *bolt.Tx) error {
 		var err error
 		if wh, err = b.get(tx, id); err != nil {
@@ -72,22 +72,22 @@ func (b *Webhooks) Get(_ context.Context, id string) (store.Webhook, error) {
 		return nil
 	})
 	if err != nil {
-		return store.Webhook{}, fmt.Errorf("view storage: %b", err)
+		return store.Subscription{}, fmt.Errorf("view storage: %b", err)
 	}
 
 	return wh, nil
 }
 
-// Delete webhook by id.
-func (b *Webhooks) Delete(_ context.Context, whID string) error {
+// Delete subscription by id.
+func (b *Subscriptions) Delete(_ context.Context, whID string) error {
 	err := b.db.Update(func(tx *bolt.Tx) error {
 		wh, err := b.get(tx, whID)
 		if err != nil {
-			return fmt.Errorf("get webhook: %w", err)
+			return fmt.Errorf("get subscription: %w", err)
 		}
 
-		if err = tx.Bucket([]byte(webhooksBktName)).Delete([]byte(whID)); err != nil {
-			return fmt.Errorf("delete webhook itself: %w", err)
+		if err = tx.Bucket([]byte(subscriptionsBktName)).Delete([]byte(whID)); err != nil {
+			return fmt.Errorf("delete subscription itself: %w", err)
 		}
 
 		trkBkt := tx.Bucket([]byte(trackerToWhRefsBktName)).Bucket([]byte(wh.TrackerName))
@@ -107,16 +107,16 @@ func (b *Webhooks) Delete(_ context.Context, whID string) error {
 	return nil
 }
 
-// Update totally rewrites the provided webhook entry.
-func (b *Webhooks) Update(_ context.Context, wh store.Webhook) error {
+// Update totally rewrites the provided subscription entry.
+func (b *Subscriptions) Update(_ context.Context, wh store.Subscription) error {
 	bts, err := json.Marshal(wh)
 	if err != nil {
-		return fmt.Errorf("marshal webhook: %b", err)
+		return fmt.Errorf("marshal subscription: %b", err)
 	}
 
 	err = b.db.Update(func(tx *bolt.Tx) error {
-		if err = tx.Bucket([]byte(webhooksBktName)).Put([]byte(wh.ID), bts); err != nil {
-			return fmt.Errorf("put webhook to storage: %w", err)
+		if err = tx.Bucket([]byte(subscriptionsBktName)).Put([]byte(wh.ID), bts); err != nil {
+			return fmt.Errorf("put subscription to storage: %w", err)
 		}
 
 		if wh.TrackerRef == "" {
@@ -129,7 +129,7 @@ func (b *Webhooks) Update(_ context.Context, wh store.Webhook) error {
 		}
 
 		if err = bkt.Put([]byte(wh.ID), []byte(time.Now().Format(time.RFC3339Nano))); err != nil {
-			return fmt.Errorf("put %s webhook reference into %s tracker's bucket: %w",
+			return fmt.Errorf("put %s subscription reference into %s tracker's bucket: %w",
 				wh.ID, wh.TrackerRef, err)
 		}
 
@@ -141,9 +141,9 @@ func (b *Webhooks) Update(_ context.Context, wh store.Webhook) error {
 	return nil
 }
 
-// List lists the webhooks registered on the given tracker.
-func (b *Webhooks) List(_ context.Context, trackerName string) ([]store.Webhook, error) {
-	var webhooks []store.Webhook
+// List lists the subscriptions registered on the given tracker.
+func (b *Subscriptions) List(_ context.Context, trackerName string) ([]store.Subscription, error) {
+	var subscriptions []store.Subscription
 	err := b.db.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket([]byte(trackerToWhRefsBktName)).Bucket([]byte(trackerName))
 		if bkt == nil {
@@ -153,10 +153,10 @@ func (b *Webhooks) List(_ context.Context, trackerName string) ([]store.Webhook,
 		err := bkt.ForEach(func(whID, _ []byte) error {
 			wh, err := b.get(tx, string(whID))
 			if err != nil {
-				return fmt.Errorf("get webhook %s: %w", whID, err)
+				return fmt.Errorf("get subscription %s: %w", whID, err)
 			}
 
-			webhooks = append(webhooks, wh)
+			subscriptions = append(subscriptions, wh)
 			return nil
 		})
 		if err != nil {
@@ -167,18 +167,18 @@ func (b *Webhooks) List(_ context.Context, trackerName string) ([]store.Webhook,
 	if err != nil {
 		return nil, fmt.Errorf("view storage: %w", err)
 	}
-	return webhooks, nil
+	return subscriptions, nil
 }
 
-func (b *Webhooks) get(tx *bolt.Tx, whID string) (store.Webhook, error) {
-	bts := tx.Bucket([]byte(webhooksBktName)).Get([]byte(whID))
+func (b *Subscriptions) get(tx *bolt.Tx, whID string) (store.Subscription, error) {
+	bts := tx.Bucket([]byte(subscriptionsBktName)).Get([]byte(whID))
 	if bts == nil {
-		return store.Webhook{}, errs.ErrNotFound
+		return store.Subscription{}, errs.ErrNotFound
 	}
 
-	var wh store.Webhook
+	var wh store.Subscription
 	if err := json.Unmarshal(bts, &wh); err != nil {
-		return store.Webhook{}, fmt.Errorf("unmarshal webhook: %w", err)
+		return store.Subscription{}, fmt.Errorf("unmarshal subscription: %w", err)
 	}
 	return wh, nil
 }

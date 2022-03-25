@@ -1,4 +1,4 @@
-package flow
+package static
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 
 	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/lib"
 	"gopkg.in/yaml.v3"
 )
 
@@ -19,21 +18,14 @@ type Static struct {
 }
 
 type config struct {
-	Trackers []Tracker       `yaml:"trackers"`
+	Trackers []store.Tracker `yaml:"trackers"`
 	Triggers []store.Trigger `yaml:"triggers"`
 	Jobs     []store.Job     `yaml:"jobs"`
 }
 
-// Tracker describes a connection parameters to the certain tracker.
-type Tracker struct {
-	Name   string   `yaml:"name"`
-	Driver string   `yaml:"driver"`
-	With   lib.Vars `yaml:"with"`
-}
-
 // NewStatic makes new instance of Static flow provider.
 func NewStatic(path string) (*Static, error) {
-	bytes, err := os.ReadFile(path)
+	bytes, err := os.ReadFile(path) //nolint:gosec // not a case
 	if err != nil {
 		return nil, fmt.Errorf("read configuration file: %w", err)
 	}
@@ -63,7 +55,7 @@ func (s *Static) ListTriggers(_ context.Context) ([]store.Trigger, error) {
 }
 
 // ListTrackers returns the list of registered trackers with their configurations.
-func (s *Static) ListTrackers(_ context.Context) ([]Tracker, error) {
+func (s *Static) ListTrackers(_ context.Context) ([]store.Tracker, error) {
 	return s.Trackers, nil
 }
 

@@ -6,9 +6,10 @@ import (
 	"github.com/cappuccinotm/dastracker/app/store"
 )
 
-//go:generate rm -f ticket_mock.go webhook_mock.go
+//go:generate rm -f ticket_mock.go webhook_mock.go flow_mock.go
 //go:generate moq -out ticket_mock.go -fmt goimports . Tickets
-//go:generate moq -out webhook_mock.go -fmt goimports . Webhooks
+//go:generate moq -out subscriptions_mock.go -fmt goimports . Subscriptions
+//go:generate moq -out flow_mock.go -fmt goimports . Flow
 
 // Tickets describes methods each storage should implement.
 type Tickets interface {
@@ -17,15 +18,21 @@ type Tickets interface {
 	Get(ctx context.Context, req GetRequest) (store.Ticket, error)
 }
 
-// Webhooks defines methods to store and load information about webhooks.
-type Webhooks interface {
-	Create(ctx context.Context, wh store.Webhook) (whID string, err error)
-	Get(ctx context.Context, whID string) (store.Webhook, error)
-	Delete(ctx context.Context, whID string) error
-	Update(ctx context.Context, wh store.Webhook) error
+// Subscriptions defines methods to store and load information about subscriptions.
+type Subscriptions interface {
+	Create(ctx context.Context, sub store.Subscription) (subID string, err error)
+	Get(ctx context.Context, subID string) (store.Subscription, error)
+	Delete(ctx context.Context, subID string) error
+	Update(ctx context.Context, sub store.Subscription) error
+	// List returns all subscriptions if trackerID = ""
+	List(ctx context.Context, trackerID string) ([]store.Subscription, error)
+}
 
-	// List returns all webhooks if trackerID = ""
-	List(ctx context.Context, trackerID string) ([]store.Webhook, error)
+// Flow defines methods to access the flow configuration.
+type Flow interface {
+	ListSubscribedJobs(ctx context.Context, triggerName string) ([]store.Job, error)
+	ListTrackers(context.Context) ([]store.Tracker, error)
+	ListTriggers(context.Context) ([]store.Trigger, error)
 }
 
 // GetRequest describes parameters to get a single ticket.

@@ -11,7 +11,6 @@ import (
 
 	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/app/webhook"
 	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/cappuccinotm/dastracker/pkg/httpx"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
@@ -28,7 +27,6 @@ type Github struct {
 	baseURL string
 	name    string
 	l       logx.Logger
-	whm     webhook.Interface
 	repo    struct{ Owner, Name string }
 	cl      *http.Client
 	handler Handler
@@ -36,11 +34,10 @@ type Github struct {
 
 // GithubParams describes parameters to initialize Github.
 type GithubParams struct {
-	Name           string
-	WebhookManager webhook.Interface
-	Vars           lib.Vars
-	Client         *http.Client
-	Logger         logx.Logger
+	Name   string
+	Vars   lib.Vars
+	Client *http.Client
+	Logger logx.Logger
 }
 
 // NewGithub makes new instance of Github tracker.
@@ -49,12 +46,7 @@ func NewGithub(params GithubParams) (*Github, error) {
 		baseURL: githubAPIURL,
 		name:    params.Name,
 		l:       params.Logger,
-		whm:     params.WebhookManager,
 		cl:      params.Client,
-	}
-
-	if err := svc.whm.Register(svc.name, http.HandlerFunc(svc.whHandler)); err != nil {
-		return nil, fmt.Errorf("register webhooks handler: %w", err)
 	}
 
 	svc.repo.Owner = params.Vars.Get("owner")
@@ -85,8 +77,7 @@ func (g *Github) Call(ctx context.Context, req Request) (Response, error) {
 }
 
 func (g *Github) updateOrCreateIssue(ctx context.Context, req Request) (Response, error) {
-	ghID := req.Ticket.TrackerIDs.Get(g.name)
-	if ghID == "" {
+	if req.TaskID == "" {
 		id, err := g.issue(ctx, http.MethodPost, "", req.Vars)
 		if err != nil {
 			return Response{}, fmt.Errorf("create task: %w", err)
@@ -95,11 +86,11 @@ func (g *Github) updateOrCreateIssue(ctx context.Context, req Request) (Response
 		return Response{TaskID: id}, nil
 	}
 
-	if _, err := g.issue(ctx, http.MethodPatch, ghID, req.Vars); err != nil {
+	if _, err := g.issue(ctx, http.MethodPatch, req.TaskID, req.Vars); err != nil {
 		return Response{}, fmt.Errorf("update task: %w", err)
 	}
 
-	return Response{TaskID: ghID}, nil
+	return Response{TaskID: req.TaskID}, nil
 }
 
 func (g *Github) issue(ctx context.Context, method, id string, vars lib.Vars) (respID string, err error) {
@@ -145,19 +136,7 @@ func (g *Github) issue(ctx context.Context, method, id string, vars lib.Vars) (r
 }
 
 // Subscribe sends a request to github for webhook and sets a handler for that webhook.
-func (g *Github) Subscribe(ctx context.Context, req SubscribeReq) error {
-	wh, err := g.whm.Create(ctx, g.name, req.TriggerName)
-	if err != nil {
-		return fmt.Errorf("create webhook entry: %w", err)
-	}
-
-	whURL, err := wh.URL()
-	if err != nil {
-		return fmt.Errorf("get url for the webhook: %w", err)
-	}
-
-	g.l.Printf("[INFO] setting up a webhook to url %s", whURL)
-
+func (g *Github) Subscribe(ctx context.Context, req SubscribeReq) (SubscribeResp, error) {
 	var hookReq struct {
 		Config struct {
 			URL         string `json:"url"`
@@ -170,28 +149,28 @@ func (g *Github) Subscribe(ctx context.Context, req SubscribeReq) error {
 
 	hookReq.Events = req.Vars.List("events")
 	hookReq.Active = true
-	hookReq.Config.URL = whURL
+	hookReq.Config.URL = req.WebhookURL
 	hookReq.Config.ContentType = "json"
 
 	bts, err := json.Marshal(hookReq)
 	if err != nil {
-		return fmt.Errorf("marshal webhook request: %w", err)
+		return SubscribeResp{}, fmt.Errorf("marshal webhook request: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/repos/%s/%s/hooks", g.baseURL, g.repo.Owner, g.repo.Name)
 
-	httpreq, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bts))
+	httpreq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bts))
 	if err != nil {
-		return fmt.Errorf("build http request: %w", err)
+		return SubscribeResp{}, fmt.Errorf("build http request: %w", err)
 	}
 
 	resp, err := g.cl.Do(httpreq)
 	if err != nil {
-		return fmt.Errorf("do request: %w", err)
+		return SubscribeResp{}, fmt.Errorf("do request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return g.handleUnexpectedStatus(resp)
+		return SubscribeResp{}, g.handleUnexpectedStatus(resp)
 	}
 
 	var respBody struct {
@@ -199,14 +178,10 @@ func (g *Github) Subscribe(ctx context.Context, req SubscribeReq) error {
 	}
 
 	if err = json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
-		return fmt.Errorf("unmarshal created issue's id: %w", err)
+		return SubscribeResp{}, fmt.Errorf("unmarshal created issue's id: %w", err)
 	}
 
-	if err = g.whm.SetTrackerID(ctx, wh.ID, strconv.FormatInt(respBody.ID, 10)); err != nil {
-		return fmt.Errorf("set github's webhook id %q: %w", respBody.ID, err)
-	}
-
-	return nil
+	return SubscribeResp{TrackerRef: strconv.FormatInt(respBody.ID, 10)}, nil
 }
 
 func (g *Github) handleUnexpectedStatus(resp *http.Response) error {
@@ -225,7 +200,8 @@ func (g *Github) Unsubscribe(ctx context.Context, req UnsubscribeReq) error {
 	panic("implement me")
 }
 
-func (g *Github) whHandler(w http.ResponseWriter, r *http.Request) {
+// HandleWebhook handles webhooks from github.
+func (g *Github) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var ghUpdate struct {
@@ -243,16 +219,9 @@ func (g *Github) whHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wh, err := webhook.GetWebhook(ctx)
-	if err != nil {
-		g.l.Printf("[WARN] failed to get webhook information from request: %v", err)
-		return
-	}
-
 	upd := store.Update{
-		TriggerName:  wh.TriggerName,
 		URL:          ghUpdate.Issue.URL,
-		ReceivedFrom: store.Locator{Tracker: wh.TrackerName, ID: strconv.Itoa(ghUpdate.Issue.ID)},
+		ReceivedFrom: store.Locator{Tracker: g.name, ID: strconv.Itoa(ghUpdate.Issue.ID)},
 		Content: store.Content{
 			Body:   ghUpdate.Issue.Description,
 			Title:  ghUpdate.Issue.Title,

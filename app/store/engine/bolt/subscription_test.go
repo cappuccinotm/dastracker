@@ -20,9 +20,9 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-func TestWebhook_Create(t *testing.T) {
-	svc := prepareWebhook(t)
-	id, err := svc.Create(context.Background(), store.Webhook{
+func TestSubscription_Create(t *testing.T) {
+	svc := prepareSubscription(t)
+	id, err := svc.Create(context.Background(), store.Subscription{
 		TrackerRef:  "tracker-id",
 		TrackerName: "tracker-name",
 		TriggerName: "trigger-name",
@@ -32,11 +32,11 @@ func TestWebhook_Create(t *testing.T) {
 	assert.NotEmpty(t, id)
 
 	err = svc.db.View(func(tx *bolt.Tx) error {
-		bkt := tx.Bucket([]byte(webhooksBktName))
+		bkt := tx.Bucket([]byte(subscriptionsBktName))
 		whBts := bkt.Get([]byte(id))
-		var wh store.Webhook
+		var wh store.Subscription
 		assert.NoError(t, json.Unmarshal(whBts, &wh))
-		assert.Equal(t, store.Webhook{
+		assert.Equal(t, store.Subscription{
 			ID:          id,
 			TrackerRef:  "tracker-id",
 			TrackerName: "tracker-name",
@@ -55,9 +55,9 @@ func TestWebhook_Create(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWebhook_Update(t *testing.T) {
-	svc := prepareWebhook(t)
-	err := svc.Update(context.Background(), store.Webhook{
+func TestSubscription_Update(t *testing.T) {
+	svc := prepareSubscription(t)
+	err := svc.Update(context.Background(), store.Subscription{
 		ID:          "id",
 		TrackerRef:  "tracker-id",
 		TrackerName: "tracker-name",
@@ -67,11 +67,11 @@ func TestWebhook_Update(t *testing.T) {
 	require.NoError(t, err)
 
 	err = svc.db.View(func(tx *bolt.Tx) error {
-		bkt := tx.Bucket([]byte(webhooksBktName))
+		bkt := tx.Bucket([]byte(subscriptionsBktName))
 		whBts := bkt.Get([]byte("id"))
-		var wh store.Webhook
+		var wh store.Subscription
 		assert.NoError(t, json.Unmarshal(whBts, &wh))
-		assert.Equal(t, store.Webhook{
+		assert.Equal(t, store.Subscription{
 			ID:          "id",
 			TrackerRef:  "tracker-id",
 			TrackerName: "tracker-name",
@@ -90,22 +90,22 @@ func TestWebhook_Update(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestNewWebhook(t *testing.T) {
-	svc := prepareWebhook(t)
+func TestNewSubscription(t *testing.T) {
+	svc := prepareSubscription(t)
 	err := svc.db.View(func(tx *bolt.Tx) error {
-		assert.NotNil(t, tx.Bucket([]byte(webhooksBktName)))
+		assert.NotNil(t, tx.Bucket([]byte(subscriptionsBktName)))
 		assert.NotNil(t, tx.Bucket([]byte(trackerToWhRefsBktName)))
 		return nil
 	})
 	require.NoError(t, err)
 }
 
-func TestWebhook_List(t *testing.T) {
-	svc := prepareWebhook(t)
+func TestSubscription_List(t *testing.T) {
+	svc := prepareSubscription(t)
 
-	generateWebhooks := func(amount int) (res []store.Webhook) {
+	generateSubscriptions := func(amount int) (res []store.Subscription) {
 		for i := 1; i <= amount; i++ {
-			res = append(res, store.Webhook{
+			res = append(res, store.Subscription{
 				ID:          fmt.Sprintf("%d-id", i),
 				TrackerRef:  fmt.Sprintf("%d-tracker-id", i),
 				TrackerName: "tracker-name",
@@ -117,8 +117,8 @@ func TestWebhook_List(t *testing.T) {
 	}
 
 	err := svc.db.Update(func(tx *bolt.Tx) error {
-		whs := generateWebhooks(5)
-		bkt := tx.Bucket([]byte(webhooksBktName))
+		whs := generateSubscriptions(5)
+		bkt := tx.Bucket([]byte(subscriptionsBktName))
 		refsBkt, err := tx.Bucket([]byte(trackerToWhRefsBktName)).CreateBucketIfNotExists([]byte("tracker-name"))
 		require.NoError(t, err)
 
@@ -139,14 +139,14 @@ func TestWebhook_List(t *testing.T) {
 	whs, err := svc.List(context.Background(), "tracker-name")
 	require.NoError(t, err)
 
-	assert.ElementsMatch(t, generateWebhooks(5), whs)
+	assert.ElementsMatch(t, generateSubscriptions(5), whs)
 }
 
-func TestWebhook_Delete(t *testing.T) {
-	svc := prepareWebhook(t)
+func TestSubscription_Delete(t *testing.T) {
+	svc := prepareSubscription(t)
 
 	err := svc.db.Update(func(tx *bolt.Tx) error {
-		bts, err := json.Marshal(store.Webhook{
+		bts, err := json.Marshal(store.Subscription{
 			ID:          "id",
 			TrackerRef:  "tracker-id",
 			TrackerName: "tracker-name",
@@ -154,7 +154,7 @@ func TestWebhook_Delete(t *testing.T) {
 			BaseURL:     "base-url",
 		})
 		require.NoError(t, err)
-		err = tx.Bucket([]byte(webhooksBktName)).Put([]byte("id"), bts)
+		err = tx.Bucket([]byte(subscriptionsBktName)).Put([]byte("id"), bts)
 		require.NoError(t, err)
 
 		bkt, err := tx.Bucket([]byte(trackerToWhRefsBktName)).CreateBucketIfNotExists([]byte("tracker-name"))
@@ -169,7 +169,7 @@ func TestWebhook_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	err = svc.db.View(func(tx *bolt.Tx) error {
-		assert.Nil(t, tx.Bucket([]byte(webhooksBktName)).Get([]byte("id")))
+		assert.Nil(t, tx.Bucket([]byte(subscriptionsBktName)).Get([]byte("id")))
 		assert.Nil(t, tx.Bucket([]byte(trackerToWhRefsBktName)).
 			Bucket([]byte("tracker-name")).
 			Get([]byte("id")),
@@ -179,11 +179,11 @@ func TestWebhook_Delete(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func prepareWebhook(t *testing.T) *Webhooks {
+func prepareSubscription(t *testing.T) *Subscriptions {
 	loc, err := ioutil.TempDir("", "test_dastracker")
 	require.NoError(t, err, "failed to make temp dir")
 
-	svc, err := NewWebhook(path.Join(loc, "dastracker_webhooks_test.db"), bolt.Options{})
+	svc, err := NewSubscription(path.Join(loc, "dastracker_subscriptions_test.db"), bolt.Options{})
 	require.NoError(t, err)
 
 	t.Cleanup(func() { assert.NoError(t, os.RemoveAll(loc)) })

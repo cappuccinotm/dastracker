@@ -5,6 +5,7 @@ import (
 
 	"github.com/cappuccinotm/dastracker/app/store"
 	"github.com/cappuccinotm/dastracker/lib"
+	"net/http"
 )
 
 //go:generate rm -f interface_mock.go
@@ -22,10 +23,15 @@ type Interface interface {
 
 	// Subscribe makes a trigger with specified parameters and returns the
 	// channel, to which updates will be published.
-	Subscribe(ctx context.Context, req SubscribeReq) error
+	Subscribe(ctx context.Context, req SubscribeReq) (SubscribeResp, error)
 
 	// Unsubscribe removes the trigger from the tracker.
 	Unsubscribe(ctx context.Context, req UnsubscribeReq) error
+
+	// HandleWebhook handles the update, received from the tracker.
+	// It must parse the received request and call the provided to Listen
+	// Handler.
+	HandleWebhook(w http.ResponseWriter, r *http.Request)
 
 	// Listen runs the tracker's listener.
 	// When the app is shutting down (ctx is canceled),
@@ -35,8 +41,9 @@ type Interface interface {
 
 // Request describes a requests to tracker's action.
 type Request struct {
+	// TaskID in the target tracker, might be empty if the request is for creation
+	TaskID string
 	Method string
-	Ticket store.Ticket
 	Vars   lib.Vars
 }
 
@@ -47,14 +54,18 @@ type Response struct {
 
 // SubscribeReq describes parameters of the subscription for task updates.
 type SubscribeReq struct {
-	TriggerName string
-	Vars        lib.Vars
+	Vars       lib.Vars
+	WebhookURL string
+}
+
+// SubscribeResp describes response from tracker on subscription request.
+type SubscribeResp struct {
+	TrackerRef string
 }
 
 // UnsubscribeReq describes parameters for the unsubscription from task updates.
 type UnsubscribeReq struct {
-	TriggerName string
-	Vars        lib.Vars
+	TrackerRef string
 }
 
 // Handler handles the update, received from the Tracker.

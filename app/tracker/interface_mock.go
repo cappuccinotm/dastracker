@@ -5,6 +5,7 @@ package tracker
 
 import (
 	"context"
+	"net/http"
 	"sync"
 )
 
@@ -14,34 +15,40 @@ var _ Interface = &InterfaceMock{}
 
 // InterfaceMock is a mock implementation of Interface.
 //
-//     func TestSomethingThatUsesInterface(t *testing.T) {
+// 	func TestSomethingThatUsesInterface(t *testing.T) {
 //
-//         // make and configure a mocked Interface
-//         mockedInterface := &InterfaceMock{
-//             CallFunc: func(ctx context.Context, req Request) (Response, error) {
-// 	               panic("mock out the Call method")
-//             },
-//             ListenFunc: func(ctx context.Context, h Handler) error {
-// 	               panic("mock out the Listen method")
-//             },
-//             NameFunc: func() string {
-// 	               panic("mock out the Name method")
-//             },
-//             SubscribeFunc: func(ctx context.Context, req SubscribeReq) error {
-// 	               panic("mock out the Subscribe method")
-//             },
-//             UnsubscribeFunc: func(ctx context.Context, req UnsubscribeReq) error {
-// 	               panic("mock out the Unsubscribe method")
-//             },
-//         }
+// 		// make and configure a mocked Interface
+// 		mockedInterface := &InterfaceMock{
+// 			CallFunc: func(ctx context.Context, req Request) (Response, error) {
+// 				panic("mock out the Call method")
+// 			},
+// 			HandleWebhookFunc: func(w http.ResponseWriter, r *http.Request)  {
+// 				panic("mock out the HandleWebhook method")
+// 			},
+// 			ListenFunc: func(ctx context.Context, h Handler) error {
+// 				panic("mock out the Listen method")
+// 			},
+// 			NameFunc: func() string {
+// 				panic("mock out the Name method")
+// 			},
+// 			SubscribeFunc: func(ctx context.Context, req SubscribeReq) (SubscribeResp, error) {
+// 				panic("mock out the Subscribe method")
+// 			},
+// 			UnsubscribeFunc: func(ctx context.Context, req UnsubscribeReq) error {
+// 				panic("mock out the Unsubscribe method")
+// 			},
+// 		}
 //
-//         // use mockedInterface in code that requires Interface
-//         // and then make assertions.
+// 		// use mockedInterface in code that requires Interface
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type InterfaceMock struct {
 	// CallFunc mocks the Call method.
 	CallFunc func(ctx context.Context, req Request) (Response, error)
+
+	// HandleWebhookFunc mocks the HandleWebhook method.
+	HandleWebhookFunc func(w http.ResponseWriter, r *http.Request)
 
 	// ListenFunc mocks the Listen method.
 	ListenFunc func(ctx context.Context, h Handler) error
@@ -50,7 +57,7 @@ type InterfaceMock struct {
 	NameFunc func() string
 
 	// SubscribeFunc mocks the Subscribe method.
-	SubscribeFunc func(ctx context.Context, req SubscribeReq) error
+	SubscribeFunc func(ctx context.Context, req SubscribeReq) (SubscribeResp, error)
 
 	// UnsubscribeFunc mocks the Unsubscribe method.
 	UnsubscribeFunc func(ctx context.Context, req UnsubscribeReq) error
@@ -63,6 +70,13 @@ type InterfaceMock struct {
 			Ctx context.Context
 			// Req is the req argument value.
 			Req Request
+		}
+		// HandleWebhook holds details about calls to the HandleWebhook method.
+		HandleWebhook []struct {
+			// W is the w argument value.
+			W http.ResponseWriter
+			// R is the r argument value.
+			R *http.Request
 		}
 		// Listen holds details about calls to the Listen method.
 		Listen []struct {
@@ -89,11 +103,12 @@ type InterfaceMock struct {
 			Req UnsubscribeReq
 		}
 	}
-	lockCall        sync.RWMutex
-	lockListen      sync.RWMutex
-	lockName        sync.RWMutex
-	lockSubscribe   sync.RWMutex
-	lockUnsubscribe sync.RWMutex
+	lockCall          sync.RWMutex
+	lockHandleWebhook sync.RWMutex
+	lockListen        sync.RWMutex
+	lockName          sync.RWMutex
+	lockSubscribe     sync.RWMutex
+	lockUnsubscribe   sync.RWMutex
 }
 
 // Call calls CallFunc.
@@ -128,6 +143,41 @@ func (mock *InterfaceMock) CallCalls() []struct {
 	mock.lockCall.RLock()
 	calls = mock.calls.Call
 	mock.lockCall.RUnlock()
+	return calls
+}
+
+// HandleWebhook calls HandleWebhookFunc.
+func (mock *InterfaceMock) HandleWebhook(w http.ResponseWriter, r *http.Request) {
+	if mock.HandleWebhookFunc == nil {
+		panic("InterfaceMock.HandleWebhookFunc: method is nil but Interface.HandleWebhook was just called")
+	}
+	callInfo := struct {
+		W http.ResponseWriter
+		R *http.Request
+	}{
+		W: w,
+		R: r,
+	}
+	mock.lockHandleWebhook.Lock()
+	mock.calls.HandleWebhook = append(mock.calls.HandleWebhook, callInfo)
+	mock.lockHandleWebhook.Unlock()
+	mock.HandleWebhookFunc(w, r)
+}
+
+// HandleWebhookCalls gets all the calls that were made to HandleWebhook.
+// Check the length with:
+//     len(mockedInterface.HandleWebhookCalls())
+func (mock *InterfaceMock) HandleWebhookCalls() []struct {
+	W http.ResponseWriter
+	R *http.Request
+} {
+	var calls []struct {
+		W http.ResponseWriter
+		R *http.Request
+	}
+	mock.lockHandleWebhook.RLock()
+	calls = mock.calls.HandleWebhook
+	mock.lockHandleWebhook.RUnlock()
 	return calls
 }
 
@@ -193,7 +243,7 @@ func (mock *InterfaceMock) NameCalls() []struct {
 }
 
 // Subscribe calls SubscribeFunc.
-func (mock *InterfaceMock) Subscribe(ctx context.Context, req SubscribeReq) error {
+func (mock *InterfaceMock) Subscribe(ctx context.Context, req SubscribeReq) (SubscribeResp, error) {
 	if mock.SubscribeFunc == nil {
 		panic("InterfaceMock.SubscribeFunc: method is nil but Interface.Subscribe was just called")
 	}

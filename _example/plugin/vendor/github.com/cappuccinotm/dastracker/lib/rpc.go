@@ -2,7 +2,8 @@ package lib
 
 // Request describes a request to tracker's action.
 type Request struct {
-	Ticket Ticket `json:"ticket"`
+	// TaskID in the target plugin, might be empty if the request is for creation
+	TaskID string `json:"task_id"`
 	Vars   Vars   `json:"vars"`
 }
 
@@ -25,7 +26,8 @@ const URLKey = "_url"
 
 // SubscribeReq describes parameters of the subscription for task updates.
 type SubscribeReq struct {
-	Vars Vars `json:"vars"`
+	WebhookID string `json:"webhookID"`
+	Vars      Vars   `json:"vars"`
 }
 
 // WebhookURL returns the url of the webhook, provided by dastracker.
@@ -33,5 +35,6 @@ func (r SubscribeReq) WebhookURL() string { return r.Vars.Get(URLKey) }
 
 // UnsubscribeReq describes parameters of the unsubscription from task updates.
 type UnsubscribeReq struct {
-	Vars Vars `json:"vars"`
+	WebhookID string `json:"webhookID"`
+	Vars      Vars   `json:"vars"`
 }

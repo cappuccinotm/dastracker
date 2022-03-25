@@ -1,7 +1,6 @@
 package tracker
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -10,15 +9,13 @@ import (
 	"testing"
 
 	"github.com/cappuccinotm/dastracker/app/errs"
-	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/app/webhook"
 	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func prepareGithubTestEnv(t *testing.T, handlerFunc http.HandlerFunc) (*Github, *webhook.InterfaceMock) {
+func prepareGithub(t *testing.T, handlerFunc http.HandlerFunc) *Github {
 	t.Helper()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u, pwd, ok := r.BasicAuth()
@@ -30,17 +27,8 @@ func prepareGithubTestEnv(t *testing.T, handlerFunc http.HandlerFunc) (*Github, 
 	}))
 	t.Cleanup(ts.Close)
 
-	whm := &webhook.InterfaceMock{
-		RegisterFunc: func(name string, handler http.Handler) error {
-			assert.Equal(t, "name", name)
-			assert.NotNil(t, handler)
-			return nil
-		},
-	}
-
 	svc, err := NewGithub(GithubParams{
-		Name:           "name",
-		WebhookManager: whm,
+		Name: "name",
 		Vars: lib.Vars{
 			"owner":        "repo-owner",
 			"name":         "repo-name",
@@ -52,7 +40,7 @@ func prepareGithubTestEnv(t *testing.T, handlerFunc http.HandlerFunc) (*Github, 
 	})
 	require.NoError(t, err)
 	svc.baseURL = ts.URL
-	return svc, whm
+	return svc
 }
 
 func requireJSONMarshal(t *testing.T, src interface{}) []byte {
@@ -76,7 +64,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 
 	t.Run("create", func(t *testing.T) {
 		called := false
-		svc, _ := prepareGithubTestEnv(t, func(w http.ResponseWriter, r *http.Request) {
+		svc := prepareGithub(t, func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, r.URL.Path, "/repos/repo-owner/repo-name/issues")
 			assert.Equal(t, r.Method, "POST")
 			b, err := io.ReadAll(r.Body)
@@ -100,7 +88,6 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 
 		resp, err := svc.Call(context.Background(), Request{
 			Method: "UpdateOrCreateIssue",
-			Ticket: store.Ticket{},
 			Vars: lib.Vars{
 				"title":     "title",
 				"body":      "body",
@@ -115,7 +102,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 
 	t.Run("unexpected status", func(t *testing.T) {
 		called := false
-		svc, _ := prepareGithubTestEnv(t, func(w http.ResponseWriter, r *http.Request) {
+		svc := prepareGithub(t, func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, r.URL.Path, "/repos/repo-owner/repo-name/issues")
 			assert.Equal(t, r.Method, "POST")
 			b, err := io.ReadAll(r.Body)
@@ -140,7 +127,6 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 
 		resp, err := svc.Call(context.Background(), Request{
 			Method: "UpdateOrCreateIssue",
-			Ticket: store.Ticket{},
 			Vars: lib.Vars{
 				"title":     "title",
 				"body":      "body",
@@ -158,7 +144,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 
 	t.Run("update", func(t *testing.T) {
 		called := false
-		svc, _ := prepareGithubTestEnv(t, func(w http.ResponseWriter, r *http.Request) {
+		svc := prepareGithub(t, func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, r.URL.Path, "/repos/repo-owner/repo-name/issues/123")
 			assert.Equal(t, r.Method, "PATCH")
 			b, err := io.ReadAll(r.Body)
@@ -181,7 +167,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 
 		resp, err := svc.Call(context.Background(), Request{
 			Method: "UpdateOrCreateIssue",
-			Ticket: store.Ticket{TrackerIDs: map[string]string{"name": "123"}},
+			TaskID: "123",
 			Vars: lib.Vars{
 				"title":     "title",
 				"body":      "body",
@@ -209,7 +195,7 @@ func TestGithub_Subscribe(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		called := false
-		svc, whm := prepareGithubTestEnv(t, func(w http.ResponseWriter, r *http.Request) {
+		svc := prepareGithub(t, func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, r.URL.Path, "/repos/repo-owner/repo-name/hooks")
 			assert.Equal(t, r.Method, "POST")
 			b, err := io.ReadAll(r.Body)
@@ -232,77 +218,12 @@ func TestGithub_Subscribe(t *testing.T) {
 			require.NoError(t, err)
 			called = true
 		})
-
-		whm.CreateFunc = func(ctx context.Context, tracker string, trigger string) (store.Webhook, error) {
-			assert.Equal(t, "name", tracker)
-			assert.Equal(t, "trigger-name", trigger)
-			return store.Webhook{
-				ID:          "webhook-id",
-				TrackerName: "name",
-				TriggerName: "trigger-name",
-				BaseURL:     "http://localhost/",
-			}, nil
-		}
-
-		whm.SetTrackerIDFunc = func(ctx context.Context, webhookID string, trackerID string) error {
-			assert.Equal(t, "webhook-id", webhookID)
-			assert.Equal(t, "123", trackerID)
-			return nil
-		}
-
-		err := svc.Subscribe(context.Background(), SubscribeReq{
-			TriggerName: "trigger-name",
-			Vars:        lib.Vars{"events": "issue,pull_request"},
+		resp, err := svc.Subscribe(context.Background(), SubscribeReq{
+			WebhookURL: "http://localhost/name/webhook-id",
+			Vars:       lib.Vars{"events": "issue,pull_request"},
 		})
 		require.NoError(t, err)
 		assert.True(t, called)
-	})
-}
-
-func TestGithub_Listen(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		svc := &Github{
-			l: logx.Nop(),
-			handler: HandlerFunc(func(ctx context.Context, update store.Update) {
-				assert.Equal(t, store.Update{
-					TriggerName:  "trigger-name",
-					URL:          "url",
-					ReceivedFrom: store.Locator{Tracker: "tracker-name", ID: "12347"},
-					Content: store.Content{
-						Body:   "description",
-						Title:  "title",
-						Fields: nil, // todo
-					},
-				}, update)
-			}),
-		}
-
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			svc.whHandler(w, r.WithContext(webhook.PutWebhook(r.Context(), store.Webhook{
-				ID:          "webhook-id",
-				TrackerRef:  "tracker-ref",
-				TrackerName: "tracker-name",
-				TriggerName: "trigger-name",
-				BaseURL:     "http://localhost/",
-			})))
-		}))
-		defer ts.Close()
-
-		req, err := http.NewRequest(http.MethodPost, ts.URL, bytes.NewReader(
-			requireJSONMarshal(t, map[string]interface{}{
-				"action": "update",
-				"issue": map[string]interface{}{
-					"number":      12347,
-					"title":       "title",
-					"description": "description",
-					"url":         "url",
-				},
-			})))
-		require.NoError(t, err)
-
-		_, err = ts.Client().Do(req)
-		require.NoError(t, err)
-
-		// todo, do we need a special response for github?
+		assert.Equal(t, resp, SubscribeResp{TrackerRef: "123"})
 	})
 }

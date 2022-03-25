@@ -13,22 +13,22 @@ var _ Logger = &LoggerMock{}
 
 // LoggerMock is a mock implementation of Logger.
 //
-//     func TestSomethingThatUsesLogger(t *testing.T) {
+// 	func TestSomethingThatUsesLogger(t *testing.T) {
 //
-//         // make and configure a mocked Logger
-//         mockedLogger := &LoggerMock{
-//             PrintfFunc: func(s string, args ...interface{})  {
-// 	               panic("mock out the Printf method")
-//             },
-//             SubFunc: func(p string) Logger {
-// 	               panic("mock out the Sub method")
-//             },
-//         }
+// 		// make and configure a mocked Logger
+// 		mockedLogger := &LoggerMock{
+// 			PrintfFunc: func(s string, args ...interface{})  {
+// 				panic("mock out the Printf method")
+// 			},
+// 			SubFunc: func(p string) Logger {
+// 				panic("mock out the Sub method")
+// 			},
+// 		}
 //
-//         // use mockedLogger in code that requires Logger
-//         // and then make assertions.
+// 		// use mockedLogger in code that requires Logger
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type LoggerMock struct {
 	// PrintfFunc mocks the Printf method.
 	PrintfFunc func(s string, args ...interface{})
