@@ -3,23 +3,22 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/cappuccinotm/dastracker/app/flow"
-	"github.com/cappuccinotm/dastracker/app/store/engine"
-	boltEngs "github.com/cappuccinotm/dastracker/app/store/engine/bolt"
-	"github.com/cappuccinotm/dastracker/app/store/service"
-	"github.com/cappuccinotm/dastracker/app/tracker"
-	"github.com/cappuccinotm/dastracker/app/webhook"
-	"github.com/cappuccinotm/dastracker/pkg/logx"
-	"github.com/cappuccinotm/dastracker/pkg/rpcx"
-	"github.com/go-pkgz/repeater/strategy"
-	"github.com/gorilla/mux"
-	bolt "go.etcd.io/bbolt"
-	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path"
 	"syscall"
 	"time"
+
+	"github.com/cappuccinotm/dastracker/app/store"
+	"github.com/cappuccinotm/dastracker/app/store/engine"
+	boltEngs "github.com/cappuccinotm/dastracker/app/store/engine/bolt"
+	"github.com/cappuccinotm/dastracker/app/store/engine/static"
+	"github.com/cappuccinotm/dastracker/app/store/service"
+	"github.com/cappuccinotm/dastracker/app/tracker"
+	"github.com/gorilla/mux"
+	bolt "go.etcd.io/bbolt"
+	"golang.org/x/sync/errgroup"
 )
 
 // Run starts a tracker listener.
@@ -37,6 +36,7 @@ type Run struct {
 		Addr    string `long:"addr" env:"ADDR" description:"local address to listen"`
 	} `group:"webhook" namespace:"webhook" env-namespace:"WEBHOOK"`
 	UpdateTimeout time.Duration `long:"update_timeout" env:"UPDATE_TIMEOUT" description:"amount of time per processing single update"`
+	CommonOpts
 }
 
 // Execute runs the command
@@ -46,94 +46,96 @@ func (r Run) Execute(_ []string) error {
 		return fmt.Errorf("prepare flow storage: %w", err)
 	}
 
-	logger, err := r.prepareLogger()
-	if err != nil {
-		return fmt.Errorf("prepare logger: %w", err)
-	}
-
-	ticketsStore, err := r.prepareTicketsStore(logger)
+	ticketsStore, err := r.prepareTicketsStore()
 	if err != nil {
 		return fmt.Errorf("initialize tickets store: %w", err)
 	}
 
-	webhooksStore, err := r.prepareWebhooksStore(logger)
-	if err != nil {
-		return fmt.Errorf("initialize webhooks store: %w", err)
-	}
-
-	webhooksManager, err := r.prepareWebhookManager(webhooksStore, logger)
-	if err != nil {
-		return fmt.Errorf("initialize webhooks manager: %w", err)
-	}
-
-	trackers, err := r.prepareTrackers(flowStore, webhooksManager)
+	trackers, err := r.prepareTrackers(flowStore)
 	if err != nil {
 		return fmt.Errorf("prepare trackers: %w", err)
 	}
 
-	dispatcher, err := r.prepareDispatcher(trackers, logger)
+	subStore, err := r.prepareSubscriptionsStore()
 	if err != nil {
-		return fmt.Errorf("prepare dispatcher: %w", err)
+		return fmt.Errorf("prepare subscriptions store: %w", err)
+	}
+
+	subscriptionsManager := &service.SubscriptionsManager{
+		BaseURL: r.Webhook.BaseURL,
+		Router:  mux.NewRouter(),
+		Logger:  r.Logger.Sub("[subscriptions manager]: "),
+		Addr:    r.Webhook.Addr,
+		Store:   subStore,
 	}
 
 	actor := &service.Actor{
-		Tracker:       dispatcher,
+		Trackers:      trackers,
 		TicketsStore:  ticketsStore,
 		Flow:          flowStore,
-		Log:           logger,
+		Log:           r.Logger.Sub("[actor]: "),
 		UpdateTimeout: r.UpdateTimeout,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() { // catch signal and invoke graceful termination
+	eg, ctx := errgroup.WithContext(context.Background())
+	eg.Go(func() error {
 		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 		<-stop
-		log.Printf("[WARN] interrupt signal")
-		cancel()
-	}()
+		r.Logger.Printf("[WARN] interrupt signal")
+		return fmt.Errorf("interrupted")
+	})
+	eg.Go(func() error {
+		if err := actor.Listen(ctx); err != nil {
+			return fmt.Errorf("actor stopped listening, reason: %w", err)
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		if err := subscriptionsManager.Listen(ctx, http.HandlerFunc(actor.HandleWebhook)); err != nil {
+			return fmt.Errorf("webhook server stopped running, reason: %w", err)
+		}
+		return nil
+	})
 
-	if err = actor.Listen(ctx); err != nil {
-		return fmt.Errorf("listen stopped, reason: %w", err)
+	if err = eg.Wait(); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (r Run) prepareFlowStore() (flow.Interface, error) {
-	return flow.NewStatic(r.ConfLocation)
+func (r Run) prepareFlowStore() (engine.Flow, error) {
+	return static.NewStatic(r.ConfLocation)
 }
 
-func (r Run) prepareDispatcher(trackers []tracker.Interface, logger logx.Logger) (tracker.Interface, error) {
-	return tracker.NewDispatcher(logger, trackers)
-}
-
-func (r Run) prepareWebhookManager(webhooksStore engine.Webhooks, logger logx.Logger) (webhook.Interface, error) {
-	return webhook.NewManager(r.Webhook.BaseURL, mux.NewRouter(), webhooksStore, logger), nil
-}
-
-func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) ([]tracker.Interface, error) {
-	trackers, err := flowStore.GetTrackers(context.Background())
+func (r Run) prepareTrackers(flowStore engine.Flow) (map[string]tracker.Interface, error) {
+	trackers, err := flowStore.ListTrackers(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("get trackers configs: %w", err)
 	}
 
-	res := make([]tracker.Interface, len(trackers))
-	for i, trk := range trackers {
+	res := map[string]tracker.Interface{}
+	for _, trk := range trackers {
+		if trk.With, err = store.Evaluate(trk.With, store.Update{}); err != nil {
+			return nil, fmt.Errorf("evaluate variables for tracker %q: %w", trk.Name, err)
+		}
+
+		sublogger := r.Logger.Sub(fmt.Sprintf("[tracker|%s]: ", trk.Name))
+
 		switch trk.Driver {
 		case "rpc":
-			dialer, err := rpcx.NewRedialer(
-				rpcx.JSONRPC(),
-				&strategy.FixedDelay{Repeats: 3, Delay: time.Second},
-				"tcp",
-				trk.With.Get("address"),
-			)
-			if err != nil {
-				return nil, fmt.Errorf("initialize new dialer for %s tracker: %w", trk.Name, err)
-			}
-
-			if res[i], err = tracker.NewJSONRPC(dialer, trk.Name, whm); err != nil {
+			if res[trk.Name], err = tracker.NewJSONRPC(trk.Name, sublogger, trk.With); err != nil {
 				return nil, fmt.Errorf("initialize jsonrpc tracker %s: %w", trk.Name, err)
+			}
+		case "github":
+			if res[trk.Name], err = tracker.NewGithub(tracker.GithubParams{
+				Name:   trk.Name,
+				Vars:   trk.With,
+				Client: &http.Client{Timeout: 5 * time.Second},
+				Logger: sublogger,
+			}); err != nil {
+				return nil, fmt.Errorf("initialize github tracker %s: %w", trk.Name, err)
 			}
 		default:
 			return nil, fmt.Errorf("unsupported driver: %s", trk.Driver)
@@ -143,31 +145,23 @@ func (r Run) prepareTrackers(flowStore flow.Interface, whm webhook.Interface) ([
 	return res, nil
 }
 
-func (r Run) prepareWebhooksStore(log logx.Logger) (engine.Webhooks, error) {
+func (r Run) prepareSubscriptionsStore() (engine.Subscriptions, error) {
 	switch r.Store.Type {
 	case "bolt":
-		webhooks, err := boltEngs.NewWebhook(
-			path.Join(r.Store.Bolt.Path, "webhooks.db"),
-			bolt.Options{Timeout: r.Store.Bolt.Timeout},
-			log,
-		)
+		subscriptions, err := boltEngs.NewSubscription(path.Join(r.Store.Bolt.Path, "subscriptions.db"), bolt.Options{Timeout: r.Store.Bolt.Timeout})
 		if err != nil {
 			return nil, fmt.Errorf("initialize bolt store: %w", err)
 		}
-		return webhooks, nil
+		return subscriptions, nil
 	default:
 		return nil, fmt.Errorf("unsupported store type: %s", r.Store.Type)
 	}
 }
 
-func (r Run) prepareTicketsStore(log logx.Logger) (engine.Tickets, error) {
+func (r Run) prepareTicketsStore() (engine.Tickets, error) {
 	switch r.Store.Type {
 	case "bolt":
-		tickets, err := boltEngs.NewTickets(
-			path.Join(r.Store.Bolt.Path, "tickets.db"),
-			bolt.Options{Timeout: r.Store.Bolt.Timeout},
-			log,
-		)
+		tickets, err := boltEngs.NewTickets(path.Join(r.Store.Bolt.Path, "tickets.db"), bolt.Options{Timeout: r.Store.Bolt.Timeout})
 		if err != nil {
 			return nil, fmt.Errorf("initialize bolt store: %w", err)
 		}
@@ -176,5 +170,3 @@ func (r Run) prepareTicketsStore(log logx.Logger) (engine.Tickets, error) {
 		return nil, fmt.Errorf("unsupported store type: %s", r.Store.Type)
 	}
 }
-
-func (r Run) prepareLogger() (logx.Logger, error) { return log.Default(), nil }

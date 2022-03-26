@@ -7,16 +7,16 @@ package bolt
 import (
 	"context"
 	"encoding/json"
-	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/app/store/engine"
-	"github.com/cappuccinotm/dastracker/pkg/logx"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	bolt "go.etcd.io/bbolt"
 	"io/ioutil"
 	"os"
 	"path"
 	"testing"
+
+	"github.com/cappuccinotm/dastracker/app/store"
+	"github.com/cappuccinotm/dastracker/app/store/engine"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	bolt "go.etcd.io/bbolt"
 )
 
 func TestTickets_Create(t *testing.T) {
@@ -159,7 +159,7 @@ func TestTickets_Get(t *testing.T) {
 			require.NoError(t, err)
 
 			err = tx.Bucket([]byte(ticketRefsBktName)).
-				Put([]byte(taskRef(store.Locator{"tracker-2", "task-id-2"})), []byte("id"))
+				Put([]byte(taskRef(store.Locator{Tracker: "tracker-2", ID: "task-id-2"})), []byte("id"))
 			require.NoError(t, err)
 
 			return nil
@@ -169,7 +169,7 @@ func TestTickets_Get(t *testing.T) {
 		tkt, err := svc.Get(context.Background(), engine.GetRequest{
 			Locator: store.Locator{
 				Tracker: "tracker-2",
-				TaskID:  "task-id-2",
+				ID:      "task-id-2",
 			},
 		})
 		require.NoError(t, err)
@@ -191,7 +191,7 @@ func prepareTickets(t *testing.T) *Tickets {
 	loc, err := ioutil.TempDir("", "test_dastracker")
 	require.NoError(t, err, "failed to make temp dir")
 
-	svc, err := NewTickets(path.Join(loc, "dastracker_tickets_test.db"), bolt.Options{}, logx.NopLogger())
+	svc, err := NewTickets(path.Join(loc, "dastracker_tickets_test.db"), bolt.Options{})
 	require.NoError(t, err)
 
 	t.Cleanup(func() { assert.NoError(t, os.RemoveAll(loc)) })

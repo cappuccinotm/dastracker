@@ -16,25 +16,25 @@ var _ Tickets = &TicketsMock{}
 
 // TicketsMock is a mock implementation of Tickets.
 //
-//     func TestSomethingThatUsesTickets(t *testing.T) {
+// 	func TestSomethingThatUsesTickets(t *testing.T) {
 //
-//         // make and configure a mocked Tickets
-//         mockedTickets := &TicketsMock{
-//             CreateFunc: func(ctx context.Context, ticket store.Ticket) (string, error) {
-// 	               panic("mock out the Create method")
-//             },
-//             GetFunc: func(ctx context.Context, req GetRequest) (store.Ticket, error) {
-// 	               panic("mock out the Get method")
-//             },
-//             UpdateFunc: func(ctx context.Context, ticket store.Ticket) error {
-// 	               panic("mock out the Update method")
-//             },
-//         }
+// 		// make and configure a mocked Tickets
+// 		mockedTickets := &TicketsMock{
+// 			CreateFunc: func(ctx context.Context, ticket store.Ticket) (string, error) {
+// 				panic("mock out the Create method")
+// 			},
+// 			GetFunc: func(ctx context.Context, req GetRequest) (store.Ticket, error) {
+// 				panic("mock out the Get method")
+// 			},
+// 			UpdateFunc: func(ctx context.Context, ticket store.Ticket) error {
+// 				panic("mock out the Update method")
+// 			},
+// 		}
 //
-//         // use mockedTickets in code that requires Tickets
-//         // and then make assertions.
+// 		// use mockedTickets in code that requires Tickets
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type TicketsMock struct {
 	// CreateFunc mocks the Create method.
 	CreateFunc func(ctx context.Context, ticket store.Ticket) (string, error)

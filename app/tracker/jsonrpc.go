@@ -6,10 +6,13 @@ import (
 	"net/http"
 
 	"encoding/json"
+	"time"
+
 	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/app/webhook"
+	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/cappuccinotm/dastracker/pkg/rpcx"
+	"github.com/go-pkgz/repeater/strategy"
 )
 
 // JSONRPC implements Interface in order to allow external services,
@@ -19,17 +22,22 @@ type JSONRPC struct {
 	cl      rpcx.Client
 	name    string
 	l       logx.Logger
-	whm     webhook.Interface
 	handler Handler
 }
 
 // NewJSONRPC makes new instance of JSONRPC.
-func NewJSONRPC(cl rpcx.Client, name string, whm webhook.Interface) (*JSONRPC, error) {
-	svc := &JSONRPC{cl: cl, name: name, whm: whm}
-
-	if err := whm.Register(name, http.HandlerFunc(svc.whHandler)); err != nil {
-		return nil, fmt.Errorf("register webhooks handler: %w", err)
+func NewJSONRPC(name string, l logx.Logger, vars lib.Vars) (*JSONRPC, error) {
+	dialer, err := rpcx.NewRedialer(
+		rpcx.JSONRPC(),
+		&strategy.FixedDelay{Repeats: 3, Delay: time.Second},
+		"tcp",
+		vars.Get("address"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("initialize new dialer for %s tracker: %w", name, err)
 	}
+
+	svc := &JSONRPC{cl: dialer, name: name, l: l}
 
 	return svc, nil
 }
@@ -39,59 +47,61 @@ func (rpc *JSONRPC) Name() string { return rpc.name }
 
 // Call makes a call to the remote JSONRPC server with given Request.
 func (rpc *JSONRPC) Call(ctx context.Context, req Request) (Response, error) {
-	_, method, err := req.ParseMethodURI()
-	if err != nil {
-		return Response{}, fmt.Errorf("parse method: %w", err)
+	var resp lib.Response
+
+	rpcReq := lib.Request{TaskID: req.TaskID, Vars: req.Vars}
+	if err := rpc.cl.Call(ctx, "plugin."+req.Method, rpcReq, &resp); err != nil {
+		return Response{}, fmt.Errorf("call remote method %s: %w", req.Method, err)
 	}
 
-	var resp Response
-	if err := rpc.cl.Call(ctx, fmt.Sprintf("%s.%s", rpc.name, method), req, &resp); err != nil {
-		return Response{}, fmt.Errorf("call remote method %s: %w", req.MethodURI, err)
-	}
-	return resp, nil
+	return Response{TaskID: resp.TaskID}, nil
 }
 
 // Subscribe sends subscribe call to the remote JSONRPC server.
-func (rpc *JSONRPC) Subscribe(ctx context.Context, req SubscribeReq) error {
-	wh, err := rpc.whm.Create(ctx, rpc.name, req.TriggerName)
-	if err != nil {
-		return fmt.Errorf("create webhook: %w", err)
+func (rpc *JSONRPC) Subscribe(ctx context.Context, req SubscribeReq) (SubscribeResp, error) {
+	var resp lib.SubscribeResp
+	if err := rpc.cl.Call(ctx, "plugin.Subscribe", lib.SubscribeReq{
+		WebhookURL: req.WebhookURL,
+		Vars:       req.Vars,
+	}, &resp); err != nil {
+		return SubscribeResp{}, fmt.Errorf("call remote Subscribe: %w", err)
 	}
 
-	url, err := wh.URL()
-	if err != nil {
-		return fmt.Errorf("make url from webhook %q: %w", wh.ID, err)
+	return SubscribeResp{TrackerRef: resp.TrackerRef}, nil
+}
+
+// Unsubscribe sends unsubscribe call to the remote JSONRPC server.
+func (rpc *JSONRPC) Unsubscribe(ctx context.Context, req UnsubscribeReq) error {
+	if err := rpc.cl.Call(ctx, "plugin.Unsubscribe", lib.UnsubscribeReq{
+		TrackerRef: req.TrackerRef,
+	}, &struct{}{}); err != nil {
+		return fmt.Errorf("call remote Unsubscribe: %w", err)
 	}
-
-	req.Vars.Set("_url", url)
-
-	var resp struct{}
-	if err := rpc.cl.Call(ctx, fmt.Sprintf("%s.Subscribe", rpc.name), req, &resp); err != nil {
-		return fmt.Errorf("call remote Subscribe: %w", err)
-	}
-
 	return nil
 }
 
-func (rpc *JSONRPC) whHandler(w http.ResponseWriter, r *http.Request) {
+// HandleWebhook handles webhook call from the remote JSONRPC server.
+func (rpc *JSONRPC) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	wh, err := webhook.GetWebhook(ctx)
-	if err != nil {
-		rpc.l.Printf("[WARN] failed to get webhook information from request: %v", err)
-		return
-	}
-
-	var upd store.Update
-	if err := json.NewDecoder(r.Body).Decode(&upd); err != nil {
+	var ticket lib.Ticket
+	if err := json.NewDecoder(r.Body).Decode(&ticket); err != nil {
 		rpc.l.Printf("[WARN] failed to decode webhook update: %v", err)
 		return
 	}
 
-	upd.ReceivedFrom.Tracker = wh.TrackerName
-	upd.TriggerName = wh.TriggerName
-
-	rpc.handler.Handle(ctx, upd)
+	rpc.handler.Handle(ctx, store.Update{
+		URL: ticket.URL,
+		ReceivedFrom: store.Locator{
+			Tracker: rpc.name,
+			ID:      ticket.TaskID,
+		},
+		Content: store.Content{
+			Body:   ticket.Body,
+			Title:  ticket.Title,
+			Fields: ticket.Fields,
+		},
+	})
 	w.WriteHeader(http.StatusOK)
 }
 

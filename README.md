@@ -76,7 +76,7 @@ Helper methods:
 | seq(l []string)                   | serializes the list in form of "string1,string2,string3,..." |
 
 ### TODO
-- [ ] RPC plugins support
+- [X] RPC plugins support
 - [ ] Github support
 - [ ] Predicates for triggers
 - [ ] Asana support
@@ -91,11 +91,44 @@ We use a word "ticket" for a task in the context of "dastracker" and the word "t
 in the context of the external task trackers.
 
 ### Plugin development
-The functionality of dastracker might be extended by using plugins. Each plugin is an independent process/container, implementing [Go RPC server](https://pkg.go.dev/net/rpc). Each exported method of the plugin handler must have a signature of `func(req lib.Request, res *lib.Response)`, these methods might be referred and called in the configuration.
+The functionality of dastracker might be extended by using plugins. Each plugin is an independent process/container, 
+implementing [Go RPC server](https://pkg.go.dev/net/rpc). Each exported method of the plugin handler must have a signature of `func(req lib.Request, res *lib.Response)`, 
+these methods might be referred and called in the configuration.
 
-Also, the `lib.Plugin` structure has a field, named `SetUpTrigger` with signature of `func(req SetUpTriggerReq, resp *SetUpTriggerResp) error`. This field might be filled in order to allow to hang on some triggers in the configuration file. If no method is provided, dastracker will do nothin on any trigger, hanged on the plugin.
+Also, the `lib.Plugin` structure has a field, named `SetUpTrigger` with signature of `func(req SetUpTriggerReq, resp *SetUpTriggerResp) error`. 
+This field might be filled in order to allow hanging on some triggers in the configuration file. 
+If no method is provided, dastracker will do nothing on any trigger, hanged on the plugin.
 
-See [example](_example/plugin/main.go) for details. **(TODO)**
+See [example](_example/plugin/main.go) for details. 
+
+Some details about JSONRPC:
+- It's implemented over standard `net/rpc/jsonrpc` package, and the package itself
+    receives requests over plain TCP connection. 
+- Method name is prefixed with `plugin.`.
+- Example of the message is follows:
+    ```json
+    {
+      "method": "plugin.Print",
+      "params": [
+        {
+          "ticket": {
+            "id": "ticket-id",
+            "task_id": "current-tracker-task-id",
+            "title": "title",
+            "body": "body",
+            "fields": {
+              "field": "value"
+            }
+          },
+          "vars": {
+            "message": "test"
+          }
+        }
+      ],
+      "id": 0
+    }
+    ```
+**(TODO)**
 
 Demo: 
 ![](docs/demo.gif)

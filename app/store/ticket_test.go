@@ -1,8 +1,9 @@
 package store
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTicket_Patch(t *testing.T) {
@@ -16,7 +17,7 @@ func TestTicket_Patch(t *testing.T) {
 		},
 	}
 	tkt.Patch(Update{
-		ReceivedFrom: Locator{Tracker: "tracker", TaskID: "task-id"},
+		ReceivedFrom: Locator{Tracker: "tracker", ID: "task-id"},
 		Content: Content{
 			Body:   "body",
 			Title:  "title",
@@ -52,14 +53,14 @@ func TestTicket_Patch(t *testing.T) {
 }
 
 func TestLocator_String(t *testing.T) {
-	assert.Equal(t, "tracker/task-id", Locator{Tracker: "tracker", TaskID: "task-id"}.String())
+	assert.Equal(t, "tracker/task-id", Locator{Tracker: "tracker", ID: "task-id"}.String())
 }
 
 func TestLocator_Empty(t *testing.T) {
 	assert.True(t, Locator{}.Empty())
-	assert.True(t, Locator{TaskID: "task-id"}.Empty())
+	assert.True(t, Locator{ID: "task-id"}.Empty())
 	assert.True(t, Locator{Tracker: "tracker"}.Empty())
-	assert.False(t, Locator{Tracker: "tracker", TaskID: "task-id"}.Empty())
+	assert.False(t, Locator{Tracker: "tracker", ID: "task-id"}.Empty())
 }
 
 func TestTrackerIDs_Set(t *testing.T) {

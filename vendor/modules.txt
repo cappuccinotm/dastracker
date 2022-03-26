@@ -1,3 +1,6 @@
+# github.com/cappuccinotm/dastracker/lib v0.0.0-00010101000000-000000000000 => ./lib
+## explicit; go 1.17
+github.com/cappuccinotm/dastracker/lib
 # github.com/davecgh/go-spew v1.1.0
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -34,7 +37,7 @@ go.etcd.io/bbolt
 # golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 ## explicit
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.0.0-20210831042530-f4d43177bf5e
+# golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
 ## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
@@ -43,3 +46,4 @@ golang.org/x/sys/unix
 # gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 ## explicit
 gopkg.in/yaml.v3
+# github.com/cappuccinotm/dastracker/lib => ./lib

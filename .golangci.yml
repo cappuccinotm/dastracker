@@ -8,7 +8,6 @@ run:
 linters:
   enable:
     - unconvert
-    - megacheck
     - structcheck
     - gas
     - gocyclo

@@ -1,28 +1,32 @@
 package tracker
 
 import (
-	"bytes"
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"testing"
+
+	"bytes"
 	"encoding/json"
 	"github.com/cappuccinotm/dastracker/app/store"
-	"github.com/cappuccinotm/dastracker/app/webhook"
+	"github.com/cappuccinotm/dastracker/lib"
+	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/cappuccinotm/dastracker/pkg/rpcx"
 	"github.com/cappuccinotm/dastracker/pkg/sign"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/http"
-	"net/http/httptest"
-	"testing"
+	"time"
 )
 
 func TestNewJSONRPC(t *testing.T) {
-	_, err := NewJSONRPC(rpcx.Client(nil), "jsonrpc", &webhook.InterfaceMock{
-		RegisterFunc: func(name string, handler http.Handler) error {
-			assert.Equal(t, "jsonrpc", name)
-			assert.NotNil(t, handler)
-			return nil
-		},
-	})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer ts.Close()
+
+	u, err := url.Parse(ts.URL)
+	require.NoError(t, err)
+
+	_, err = NewJSONRPC("jsonrpc", logx.Nop(), lib.Vars{"address": u.Host})
 	require.NoError(t, err)
 }
 
@@ -33,128 +37,74 @@ func TestJSONRPC_Name(t *testing.T) {
 func TestJSONRPC_Call(t *testing.T) {
 	svc := &JSONRPC{name: "jrpc", cl: &rpcx.ClientMock{
 		CallFunc: func(ctx context.Context, serviceMethod string, args, reply interface{}) error {
-			resp, ok := reply.(*Response)
+			resp, ok := reply.(*lib.Response)
 			assert.True(t, ok)
-			req, ok := args.(Request)
+			req, ok := args.(lib.Request)
 			assert.True(t, ok)
 
-			assert.Equal(t, "jrpc.some-method", serviceMethod)
-			*resp = Response{Tracker: "remote-tracker", TaskID: "task-id"}
-			assert.Equal(t, Request{
-				MethodURI: "some-tracker/some-method",
-				Ticket: store.Ticket{
-					ID:         "ticket-id",
-					TrackerIDs: map[string]string{"tracker": "tracker-id"},
-					Content:    store.Content{Body: "body", Title: "title"},
-				},
-				Vars: store.Vars{},
+			assert.Equal(t, "plugin.some-method", serviceMethod)
+			*resp = lib.Response{TaskID: "task-id"}
+			assert.Equal(t, lib.Request{
+				TaskID: "task-id",
+				Vars:   lib.Vars{},
 			}, req)
 			return nil
 		},
 	}}
 
 	resp, err := svc.Call(context.Background(), Request{
-		MethodURI: "some-tracker/some-method",
-		Ticket: store.Ticket{
-			ID:         "ticket-id",
-			TrackerIDs: map[string]string{"tracker": "tracker-id"},
-			Content:    store.Content{Body: "body", Title: "title"},
-		},
-		Vars: store.Vars{},
+		Method: "some-method",
+		TaskID: "task-id",
+		Vars:   lib.Vars{},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, Response{Tracker: "remote-tracker", TaskID: "task-id"}, resp)
+	assert.Equal(t, Response{TaskID: "task-id"}, resp)
 }
 
 func TestJSONRPC_Subscribe(t *testing.T) {
 	svc := &JSONRPC{
 		name: "jrpc",
-		whm: &webhook.InterfaceMock{
-			CreateFunc: func(ctx context.Context, tracker string, trigger string) (store.Webhook, error) {
-				assert.Equal(t, "jrpc", tracker)
-				assert.Equal(t, "trigger", trigger)
-				return store.Webhook{
-					ID:          "trigger-id",
-					TrackerName: "jrpc",
-					TriggerName: "trigger",
-					BaseURL:     "https://blah.com/webhooks",
-				}, nil
-			},
-		},
 		cl: &rpcx.ClientMock{
 			CallFunc: func(ctx context.Context, serviceMethod string, args, reply interface{}) error {
-				req, ok := args.(SubscribeReq)
+				req, ok := args.(lib.SubscribeReq)
 				assert.True(t, ok)
 
-				assert.Equal(t, "jrpc.Subscribe", serviceMethod)
-				assert.Equal(t, SubscribeReq{
-					TriggerName: "trigger",
-					Tracker:     "jrpc",
-					Vars: store.VarsFromMap(map[string]string{
-						"blah": "blah",
-						"_url": "https://blah.com/webhooks/jrpc/trigger-id",
-					}),
+				assert.Equal(t, "plugin.Subscribe", serviceMethod)
+				assert.Equal(t, lib.SubscribeReq{
+					WebhookURL: "https://blah.com/webhooks/jrpc/trigger-id",
+					Vars:       map[string]string{"blah": "blah"},
 				}, req)
+				reply.(*lib.SubscribeResp).TrackerRef = "tracker-ref"
 				return nil
 			},
 		},
 	}
 
-	err := svc.Subscribe(context.Background(), SubscribeReq{
-		TriggerName: "trigger",
-		Tracker:     "jrpc",
-		Vars:        store.VarsFromMap(map[string]string{"blah": "blah"}),
+	resp, err := svc.Subscribe(context.Background(), SubscribeReq{
+		WebhookURL: "https://blah.com/webhooks/jrpc/trigger-id",
+		Vars:       lib.Vars{"blah": "blah"},
 	})
 	require.NoError(t, err)
+	assert.Equal(t, SubscribeResp{TrackerRef: "tracker-ref"}, resp)
 }
 
-func TestJSONRPC_whHandler(t *testing.T) {
-	called := sign.Signal()
+func TestJSONRPC_Unsubscribe(t *testing.T) {
 	svc := &JSONRPC{
-		handler: HandlerFunc(func(ctx context.Context, update store.Update) {
-			assert.Equal(t, store.Update{
-				URL:          "url",
-				TriggerName:  "wh-trigger-name",
-				ReceivedFrom: store.Locator{TaskID: "task-id", Tracker: "wh-tracker-name"},
-				Content: store.Content{
-					Body:   "body",
-					Title:  "title",
-					Fields: map[string]string{"field": "value"},
-				},
-			}, update)
-			called.Done()
-		}),
+		name: "jrpc",
+		cl: &rpcx.ClientMock{
+			CallFunc: func(ctx context.Context, serviceMethod string, args, reply interface{}) error {
+				req, ok := args.(lib.UnsubscribeReq)
+				assert.True(t, ok)
+
+				assert.Equal(t, "plugin.Unsubscribe", serviceMethod)
+				assert.Equal(t, lib.UnsubscribeReq{TrackerRef: "tracker-ref"}, req)
+				return nil
+			},
+		},
 	}
 
-	ts := httptest.NewServer(http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			r = r.WithContext(webhook.PutWebhook(r.Context(), store.Webhook{
-				ID:          "wh-id",
-				TrackerID:   "wh-tracker-id",
-				TrackerName: "wh-tracker-name",
-				TriggerName: "wh-trigger-name",
-				BaseURL:     "wh-base-url",
-			}))
-			svc.whHandler(w, r)
-		}))
-	defer ts.Close()
-
-	b, err := json.Marshal(store.Update{
-		URL:          "url",
-		ReceivedFrom: store.Locator{TaskID: "task-id"},
-		Content: store.Content{
-			Body:   "body",
-			Title:  "title",
-			Fields: map[string]string{"field": "value"},
-		},
-	})
+	err := svc.Unsubscribe(context.Background(), UnsubscribeReq{TrackerRef: "tracker-ref"})
 	require.NoError(t, err)
-
-	resp, err := ts.Client().Post(ts.URL, "application/json", bytes.NewReader(b))
-	require.NoError(t, err)
-	assert.Equal(t, 200, resp.StatusCode)
-
-	assert.True(t, called.Signaled())
 }
 
 func TestJSONRPC_Listen(t *testing.T) {
@@ -170,4 +120,43 @@ func TestJSONRPC_Listen(t *testing.T) {
 	svc.handler.Handle(context.Background(), store.Update{})
 
 	assert.True(t, handlerProvided.Signaled())
+}
+
+func TestJSONRPC_HandleWebhook(t *testing.T) {
+	called := sign.Signal()
+	svc := &JSONRPC{
+		name: "tracker",
+		handler: HandlerFunc(func(ctx context.Context, update store.Update) {
+			assert.Equal(t, store.Update{
+				URL: "update-url",
+				ReceivedFrom: store.Locator{
+					Tracker: "tracker",
+					ID:      "task-id",
+				},
+				Content: store.Content{
+					Body:   "body",
+					Title:  "title",
+					Fields: map[string]string{"somefield": "somevalue"},
+				},
+			}, update)
+			called.Done()
+		}),
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(svc.HandleWebhook))
+	defer ts.Close()
+
+	b, err := json.Marshal(lib.Ticket{
+		URL:    "update-url",
+		TaskID: "task-id",
+		Title:  "title",
+		Body:   "body",
+		Fields: map[string]string{"somefield": "somevalue"},
+	})
+	require.NoError(t, err)
+
+	resp, err := ts.Client().Post(ts.URL, "application/json", bytes.NewReader(b))
+	require.NoError(t, err)
+	assert.Equal(t, resp.StatusCode, http.StatusOK)
+	require.NoError(t, called.WaitTimeout(5*time.Second))
 }

@@ -2,9 +2,10 @@ package tracker
 
 import (
 	"context"
-	"github.com/cappuccinotm/dastracker/app/errs"
+
 	"github.com/cappuccinotm/dastracker/app/store"
-	"strings"
+	"github.com/cappuccinotm/dastracker/lib"
+	"net/http"
 )
 
 //go:generate rm -f interface_mock.go
@@ -16,13 +17,21 @@ type Interface interface {
 	Name() string
 
 	// Call makes a request to the tracker with specified method name,
-	// variables and dastracker's TaskID. Response should contain the
-	// TaskID of the ticket in the tracker.
+	// variables and dastracker's ID. Response should contain the
+	// ID of the ticket in the tracker.
 	Call(ctx context.Context, req Request) (Response, error)
 
 	// Subscribe makes a trigger with specified parameters and returns the
 	// channel, to which updates will be published.
-	Subscribe(ctx context.Context, req SubscribeReq) error
+	Subscribe(ctx context.Context, req SubscribeReq) (SubscribeResp, error)
+
+	// Unsubscribe removes the trigger from the tracker.
+	Unsubscribe(ctx context.Context, req UnsubscribeReq) error
+
+	// HandleWebhook handles the update, received from the tracker.
+	// It must parse the received request and call the provided to Listen
+	// Handler.
+	HandleWebhook(w http.ResponseWriter, r *http.Request)
 
 	// Listen runs the tracker's listener.
 	// When the app is shutting down (ctx is canceled),
@@ -32,32 +41,40 @@ type Interface interface {
 
 // Request describes a requests to tracker's action.
 type Request struct {
-	MethodURI string
-	Ticket    store.Ticket
-	Vars      store.Vars
-}
-
-// ParseMethodURI parses the MethodURI field of the request, assuming that
-// the method is composed in form of "tracker/method". If the assumption does
-// not hold, it returns empty strings instead.
-func (r Request) ParseMethodURI() (tracker, method string, err error) {
-	dividerIdx := strings.IndexRune(r.MethodURI, '/')
-	if dividerIdx == -1 || dividerIdx == len(r.MethodURI)-1 || dividerIdx == 0 {
-		return "", "", errs.ErrMethodParseFailed(r.MethodURI)
-	}
-
-	return r.MethodURI[:dividerIdx], r.MethodURI[dividerIdx+1:], nil
+	// TaskID in the target tracker, might be empty if the request is for creation
+	TaskID string
+	Method string
+	Vars   lib.Vars
 }
 
 // Response describes possible return values of the Interface.Call
 type Response struct {
-	Tracker string // tracker, from which the response was received
-	TaskID  string // id of the created task in the tracker.
+	TaskID string // id of the created task in the tracker.
 }
 
 // SubscribeReq describes parameters of the subscription for task updates.
 type SubscribeReq struct {
-	TriggerName string
-	Tracker     string
-	Vars        store.Vars
+	Vars       lib.Vars
+	WebhookURL string
 }
+
+// SubscribeResp describes response from tracker on subscription request.
+type SubscribeResp struct {
+	TrackerRef string
+}
+
+// UnsubscribeReq describes parameters for the unsubscription from task updates.
+type UnsubscribeReq struct {
+	TrackerRef string
+}
+
+// Handler handles the update, received from the Tracker.
+type Handler interface {
+	Handle(ctx context.Context, upd store.Update)
+}
+
+// HandlerFunc is an adapter to use ordinary functions as Handler.
+type HandlerFunc func(context.Context, store.Update)
+
+// Handle calls the wrapped function.
+func (f HandlerFunc) Handle(ctx context.Context, upd store.Update) { f(ctx, upd) }
