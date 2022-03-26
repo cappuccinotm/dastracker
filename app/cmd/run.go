@@ -70,11 +70,12 @@ func (r Run) Execute(_ []string) error {
 	}
 
 	actor := &service.Actor{
-		Trackers:      trackers,
-		TicketsStore:  ticketsStore,
-		Flow:          flowStore,
-		Log:           r.Logger.Sub("[actor]: "),
-		UpdateTimeout: r.UpdateTimeout,
+		SubscriptionsManager: subscriptionsManager,
+		Trackers:             trackers,
+		TicketsStore:         ticketsStore,
+		Flow:                 flowStore,
+		Log:                  r.Logger.Sub("[actor]: "),
+		UpdateTimeout:        r.UpdateTimeout,
 	}
 
 	eg, ctx := errgroup.WithContext(context.Background())
