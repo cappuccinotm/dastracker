@@ -39,7 +39,7 @@ func (s *Actor) Listen(ctx context.Context) error {
 	if err := s.registerTriggers(ctx); err != nil {
 		return fmt.Errorf("register triggers: %w", err)
 	}
-	defer s.unregisterTriggers(ctx) // todo must be a different context
+	defer s.unregisterTriggers(context.Background())
 
 	ewg, ctx := errgroup.WithContext(ctx)
 

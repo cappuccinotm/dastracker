@@ -31,8 +31,8 @@ type Subscriptions interface {
 // Flow defines methods to access the flow configuration.
 type Flow interface {
 	ListSubscribedJobs(ctx context.Context, triggerName string) ([]store.Job, error)
-	ListTrackers(context.Context) ([]store.Tracker, error)
-	ListTriggers(context.Context) ([]store.Trigger, error)
+	ListTrackers(ctx context.Context) ([]store.Tracker, error)
+	ListTriggers(ctx context.Context) ([]store.Trigger, error)
 }
 
 // GetRequest describes parameters to get a single ticket.

@@ -13,7 +13,7 @@ import (
 // SubscriptionsManager manages subscriptions for task updates in trackers,
 // including creation of subscriptions and recognizing particular subscription.
 type SubscriptionsManager struct {
-	BaseURL string
+	BaseURL string // must be without trailing slash
 	Router  *mux.Router
 	Logger  logx.Logger
 	Addr    string
