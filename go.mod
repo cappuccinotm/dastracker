@@ -1,6 +1,6 @@
 module github.com/cappuccinotm/dastracker
 
-go 1.18
+go 1.17
 
 replace github.com/cappuccinotm/dastracker/lib => ./lib
 

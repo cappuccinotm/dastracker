@@ -33,22 +33,22 @@ func TestSubscription_Create(t *testing.T) {
 
 	err = svc.db.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket([]byte(subscriptionsBktName))
-		whBts := bkt.Get([]byte(id))
-		var wh store.Subscription
-		assert.NoError(t, json.Unmarshal(whBts, &wh))
+		subBts := bkt.Get([]byte(id))
+		var sub store.Subscription
+		assert.NoError(t, json.Unmarshal(subBts, &sub))
 		assert.Equal(t, store.Subscription{
 			ID:          id,
 			TrackerRef:  "tracker-id",
 			TrackerName: "tracker-name",
 			TriggerName: "trigger-name",
 			BaseURL:     "base-url",
-		}, wh)
+		}, sub)
 
-		bkt = tx.Bucket([]byte(trackerToWhRefsBktName)).Bucket([]byte("tracker-id"))
+		bkt = tx.Bucket([]byte(trackerToSubsBktName)).Bucket([]byte("tracker-id"))
 		assert.NotNil(t, bkt)
 
-		whBts = bkt.Get([]byte(id))
-		assert.NotEmpty(t, whBts)
+		subBts = bkt.Get([]byte(id))
+		assert.NotEmpty(t, subBts)
 
 		return nil
 	})
@@ -68,22 +68,22 @@ func TestSubscription_Update(t *testing.T) {
 
 	err = svc.db.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket([]byte(subscriptionsBktName))
-		whBts := bkt.Get([]byte("id"))
-		var wh store.Subscription
-		assert.NoError(t, json.Unmarshal(whBts, &wh))
+		subBts := bkt.Get([]byte("id"))
+		var sub store.Subscription
+		assert.NoError(t, json.Unmarshal(subBts, &sub))
 		assert.Equal(t, store.Subscription{
 			ID:          "id",
 			TrackerRef:  "tracker-id",
 			TrackerName: "tracker-name",
 			TriggerName: "trigger-name",
 			BaseURL:     "base-url",
-		}, wh)
+		}, sub)
 
-		bkt = tx.Bucket([]byte(trackerToWhRefsBktName)).Bucket([]byte("tracker-id"))
+		bkt = tx.Bucket([]byte(trackerToSubsBktName)).Bucket([]byte("tracker-id"))
 		assert.NotNil(t, bkt)
 
-		whBts = bkt.Get([]byte("id"))
-		assert.NotEmpty(t, whBts)
+		subBts = bkt.Get([]byte("id"))
+		assert.NotEmpty(t, subBts)
 
 		return nil
 	})
@@ -94,7 +94,7 @@ func TestNewSubscription(t *testing.T) {
 	svc := prepareSubscription(t)
 	err := svc.db.View(func(tx *bolt.Tx) error {
 		assert.NotNil(t, tx.Bucket([]byte(subscriptionsBktName)))
-		assert.NotNil(t, tx.Bucket([]byte(trackerToWhRefsBktName)))
+		assert.NotNil(t, tx.Bucket([]byte(trackerToSubsBktName)))
 		return nil
 	})
 	require.NoError(t, err)
@@ -117,29 +117,29 @@ func TestSubscription_List(t *testing.T) {
 	}
 
 	err := svc.db.Update(func(tx *bolt.Tx) error {
-		whs := generateSubscriptions(5)
+		subs := generateSubscriptions(5)
 		bkt := tx.Bucket([]byte(subscriptionsBktName))
-		refsBkt, err := tx.Bucket([]byte(trackerToWhRefsBktName)).CreateBucketIfNotExists([]byte("tracker-name"))
+		refsBkt, err := tx.Bucket([]byte(trackerToSubsBktName)).CreateBucketIfNotExists([]byte("tracker-name"))
 		require.NoError(t, err)
 
-		for _, wh := range whs {
-			bts, err := json.Marshal(wh)
+		for _, sub := range subs {
+			bts, err := json.Marshal(sub)
 			require.NoError(t, err)
 
-			err = bkt.Put([]byte(wh.ID), bts)
+			err = bkt.Put([]byte(sub.ID), bts)
 			require.NoError(t, err)
 
-			err = refsBkt.Put([]byte(wh.ID), []byte(time.Now().Format(time.RFC3339Nano)))
+			err = refsBkt.Put([]byte(sub.ID), []byte(time.Now().Format(time.RFC3339Nano)))
 			require.NoError(t, err)
 		}
 		return nil
 	})
 	require.NoError(t, err)
 
-	whs, err := svc.List(context.Background(), "tracker-name")
+	subs, err := svc.List(context.Background(), "tracker-name")
 	require.NoError(t, err)
 
-	assert.ElementsMatch(t, generateSubscriptions(5), whs)
+	assert.ElementsMatch(t, generateSubscriptions(5), subs)
 }
 
 func TestSubscription_Delete(t *testing.T) {
@@ -157,7 +157,7 @@ func TestSubscription_Delete(t *testing.T) {
 		err = tx.Bucket([]byte(subscriptionsBktName)).Put([]byte("id"), bts)
 		require.NoError(t, err)
 
-		bkt, err := tx.Bucket([]byte(trackerToWhRefsBktName)).CreateBucketIfNotExists([]byte("tracker-name"))
+		bkt, err := tx.Bucket([]byte(trackerToSubsBktName)).CreateBucketIfNotExists([]byte("tracker-name"))
 		require.NoError(t, err)
 		err = bkt.Put([]byte("id"), []byte("2006-01-02T15:04:05.999999999Z07:00"))
 		require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestSubscription_Delete(t *testing.T) {
 
 	err = svc.db.View(func(tx *bolt.Tx) error {
 		assert.Nil(t, tx.Bucket([]byte(subscriptionsBktName)).Get([]byte("id")))
-		assert.Nil(t, tx.Bucket([]byte(trackerToWhRefsBktName)).
+		assert.Nil(t, tx.Bucket([]byte(trackerToSubsBktName)).
 			Bucket([]byte("tracker-name")).
 			Get([]byte("id")),
 		)

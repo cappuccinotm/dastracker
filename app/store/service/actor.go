@@ -193,13 +193,6 @@ func (s *Actor) registerTriggers(ctx context.Context) error {
 			}
 
 			if err = s.SubscriptionsManager.SetTrackerRef(ctx, sub.ID, resp.TrackerRef); err != nil {
-				err = s.Trackers[trigger.Tracker].Unsubscribe(ctx, tracker.UnsubscribeReq{
-					TrackerRef: resp.TrackerRef,
-				})
-				if err != nil {
-					s.Log.Printf("[WARN] failed to unsubscribe from tracker %q with trigger %q on id %q: %v",
-						trigger.Tracker, trigger.Name, resp.TrackerRef)
-				}
 				return fmt.Errorf("set tracker reference %q in subscription %q: %w", resp.TrackerRef, sub.ID, err)
 			}
 
@@ -208,7 +201,6 @@ func (s *Actor) registerTriggers(ctx context.Context) error {
 	}
 
 	if err = ewg.Wait(); err != nil {
-		// todo unsubscribe from already registered triggers
 		return fmt.Errorf("one of trackers refused to register triggers: %w", err)
 	}
 

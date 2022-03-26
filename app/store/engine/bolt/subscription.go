@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	subscriptionsBktName   = "subscriptions"
-	trackerToWhRefsBktName = "tracker_wh_refs"
+	subscriptionsBktName = "subscriptions"
+	trackerToSubsBktName = "tracker_sub_refs"
 )
 
 // Subscriptions implements engine.Subscriptions over the BoltDB storage.
@@ -37,8 +37,8 @@ func NewSubscription(fileName string, options bolt.Options) (*Subscriptions, err
 			return fmt.Errorf("failed to create top-level bucket %s: %w", subscriptionsBktName, err)
 		}
 
-		if _, err := tx.CreateBucketIfNotExists([]byte(trackerToWhRefsBktName)); err != nil {
-			return fmt.Errorf("failed to create top-level bucket %s: %w", trackerToWhRefsBktName, err)
+		if _, err := tx.CreateBucketIfNotExists([]byte(trackerToSubsBktName)); err != nil {
+			return fmt.Errorf("failed to create top-level bucket %s: %w", trackerToSubsBktName, err)
 		}
 
 		return nil
@@ -51,23 +51,23 @@ func NewSubscription(fileName string, options bolt.Options) (*Subscriptions, err
 }
 
 // Create creates a subscription in the storage.
-func (b *Subscriptions) Create(ctx context.Context, wh store.Subscription) (string, error) {
-	wh.ID = uuid.NewString()
+func (b *Subscriptions) Create(ctx context.Context, sub store.Subscription) (string, error) {
+	sub.ID = uuid.NewString()
 
 	// todo check for the same tracker/trigger pair, must be unique
-	if err := b.Update(ctx, wh); err != nil {
+	if err := b.Update(ctx, sub); err != nil {
 		return "", fmt.Errorf("put subscription into storage: %w", err)
 	}
 
-	return wh.ID, nil
+	return sub.ID, nil
 }
 
 // Get subscription by id.
 func (b *Subscriptions) Get(_ context.Context, id string) (store.Subscription, error) {
-	var wh store.Subscription
+	var sub store.Subscription
 	err := b.db.View(func(tx *bolt.Tx) error {
 		var err error
-		if wh, err = b.get(tx, id); err != nil {
+		if sub, err = b.get(tx, id); err != nil {
 			return fmt.Errorf("get from bucket: %w", err)
 		}
 		return nil
@@ -76,28 +76,28 @@ func (b *Subscriptions) Get(_ context.Context, id string) (store.Subscription, e
 		return store.Subscription{}, fmt.Errorf("view storage: %b", err)
 	}
 
-	return wh, nil
+	return sub, nil
 }
 
 // Delete subscription by id.
-func (b *Subscriptions) Delete(_ context.Context, whID string) error {
+func (b *Subscriptions) Delete(_ context.Context, subID string) error {
 	err := b.db.Update(func(tx *bolt.Tx) error {
-		wh, err := b.get(tx, whID)
+		sub, err := b.get(tx, subID)
 		if err != nil {
 			return fmt.Errorf("get subscription: %w", err)
 		}
 
-		if err = tx.Bucket([]byte(subscriptionsBktName)).Delete([]byte(whID)); err != nil {
+		if err = tx.Bucket([]byte(subscriptionsBktName)).Delete([]byte(subID)); err != nil {
 			return fmt.Errorf("delete subscription itself: %w", err)
 		}
 
-		trkBkt := tx.Bucket([]byte(trackerToWhRefsBktName)).Bucket([]byte(wh.TrackerName))
+		trkBkt := tx.Bucket([]byte(trackerToSubsBktName)).Bucket([]byte(sub.TrackerName))
 		if trkBkt == nil {
-			return fmt.Errorf("bucket with %q tracker not found: %w", wh.TrackerName, errs.ErrNotFound)
+			return fmt.Errorf("bucket with %q tracker not found: %w", sub.TrackerName, errs.ErrNotFound)
 		}
 
-		if err = trkBkt.Delete([]byte(whID)); err != nil {
-			return fmt.Errorf("delete %s reference in %s tracker's bucket: %w", whID, wh.TrackerName, err)
+		if err = trkBkt.Delete([]byte(subID)); err != nil {
+			return fmt.Errorf("delete %s reference in %s tracker's bucket: %w", subID, sub.TrackerName, err)
 		}
 		return nil
 	})
@@ -109,29 +109,29 @@ func (b *Subscriptions) Delete(_ context.Context, whID string) error {
 }
 
 // Update totally rewrites the provided subscription entry.
-func (b *Subscriptions) Update(_ context.Context, wh store.Subscription) error {
-	bts, err := json.Marshal(wh)
+func (b *Subscriptions) Update(_ context.Context, sub store.Subscription) error {
+	bts, err := json.Marshal(sub)
 	if err != nil {
 		return fmt.Errorf("marshal subscription: %b", err)
 	}
 
 	err = b.db.Update(func(tx *bolt.Tx) error {
-		if err = tx.Bucket([]byte(subscriptionsBktName)).Put([]byte(wh.ID), bts); err != nil {
+		if err = tx.Bucket([]byte(subscriptionsBktName)).Put([]byte(sub.ID), bts); err != nil {
 			return fmt.Errorf("put subscription to storage: %w", err)
 		}
 
-		if wh.TrackerRef == "" {
+		if sub.TrackerRef == "" {
 			return nil
 		}
 
-		bkt, err := tx.Bucket([]byte(trackerToWhRefsBktName)).CreateBucketIfNotExists([]byte(wh.TrackerRef))
+		bkt, err := tx.Bucket([]byte(trackerToSubsBktName)).CreateBucketIfNotExists([]byte(sub.TrackerRef))
 		if err != nil {
-			return fmt.Errorf("create refs bucket for tracker %s: %w", wh.TrackerRef, err)
+			return fmt.Errorf("create refs bucket for tracker %s: %w", sub.TrackerRef, err)
 		}
 
-		if err = bkt.Put([]byte(wh.ID), []byte(time.Now().Format(time.RFC3339Nano))); err != nil {
+		if err = bkt.Put([]byte(sub.ID), []byte(time.Now().Format(time.RFC3339Nano))); err != nil {
 			return fmt.Errorf("put %s subscription reference into %s tracker's bucket: %w",
-				wh.ID, wh.TrackerRef, err)
+				sub.ID, sub.TrackerRef, err)
 		}
 
 		return nil
@@ -146,18 +146,18 @@ func (b *Subscriptions) Update(_ context.Context, wh store.Subscription) error {
 func (b *Subscriptions) List(_ context.Context, trackerName string) ([]store.Subscription, error) {
 	var subscriptions []store.Subscription
 	err := b.db.View(func(tx *bolt.Tx) error {
-		bkt := tx.Bucket([]byte(trackerToWhRefsBktName)).Bucket([]byte(trackerName))
+		bkt := tx.Bucket([]byte(trackerToSubsBktName)).Bucket([]byte(trackerName))
 		if bkt == nil {
 			return nil
 		}
 
-		err := bkt.ForEach(func(whID, _ []byte) error {
-			wh, err := b.get(tx, string(whID))
+		err := bkt.ForEach(func(subID, _ []byte) error {
+			sub, err := b.get(tx, string(subID))
 			if err != nil {
-				return fmt.Errorf("get subscription %s: %w", whID, err)
+				return fmt.Errorf("get subscription %s: %w", subID, err)
 			}
 
-			subscriptions = append(subscriptions, wh)
+			subscriptions = append(subscriptions, sub)
 			return nil
 		})
 		if err != nil {
@@ -171,15 +171,15 @@ func (b *Subscriptions) List(_ context.Context, trackerName string) ([]store.Sub
 	return subscriptions, nil
 }
 
-func (b *Subscriptions) get(tx *bolt.Tx, whID string) (store.Subscription, error) {
-	bts := tx.Bucket([]byte(subscriptionsBktName)).Get([]byte(whID))
+func (b *Subscriptions) get(tx *bolt.Tx, subID string) (store.Subscription, error) {
+	bts := tx.Bucket([]byte(subscriptionsBktName)).Get([]byte(subID))
 	if bts == nil {
 		return store.Subscription{}, errs.ErrNotFound
 	}
 
-	var wh store.Subscription
-	if err := json.Unmarshal(bts, &wh); err != nil {
+	var sub store.Subscription
+	if err := json.Unmarshal(bts, &sub); err != nil {
 		return store.Subscription{}, fmt.Errorf("unmarshal subscription: %w", err)
 	}
-	return wh, nil
+	return sub, nil
 }
