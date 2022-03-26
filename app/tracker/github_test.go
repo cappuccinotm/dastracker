@@ -273,3 +273,20 @@ func TestGithub_HandleWebhook(t *testing.T) {
 
 	require.NoError(t, called.WaitTimeout(5*time.Second))
 }
+
+func TestGithub_Unsubscribe(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/repos/owner/name/hooks/tracker-ref", r.URL.Path)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
+	svc := &Github{
+		baseURL: ts.URL,
+		repo:    struct{ Owner, Name string }{Owner: "owner", Name: "name"},
+		cl:      ts.Client(),
+	}
+
+	err := svc.Unsubscribe(context.Background(), UnsubscribeReq{TrackerRef: "tracker-ref"})
+	require.NoError(t, err)
+}

@@ -197,7 +197,22 @@ func (g *Github) handleUnexpectedStatus(resp *http.Response) error {
 
 // Unsubscribe removes the webhook from github and removes the handler for that webhook.
 func (g *Github) Unsubscribe(ctx context.Context, req UnsubscribeReq) error {
-	panic("implement me")
+	url := fmt.Sprintf("%s/repos/%s/%s/hooks/%s", g.baseURL, g.repo.Owner, g.repo.Name, req.TrackerRef)
+	httpreq, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return fmt.Errorf("build http request: %w", err)
+	}
+
+	resp, err := g.cl.Do(httpreq)
+	if err != nil {
+		return fmt.Errorf("do request: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusNoContent {
+		return g.handleUnexpectedStatus(resp)
+	}
+
+	return nil
 }
 
 // HandleWebhook handles webhooks from github.
