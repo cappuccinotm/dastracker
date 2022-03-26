@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	subscriptionsBktName = "subscriptions"
-	trackerToSubsBktName = "tracker_sub_refs"
+	subscriptionsBktName           = "subscriptions"
+	trackerToSubsBktName           = "tracker_refs_to_subs"
+	trackerTriggerRefToSubsBktName = "tracker_trigger_to_subs"
 )
 
 // Subscriptions implements engine.Subscriptions over the BoltDB storage.
@@ -41,6 +42,10 @@ func NewSubscription(fileName string, options bolt.Options) (*Subscriptions, err
 			return fmt.Errorf("failed to create top-level bucket %s: %w", trackerToSubsBktName, err)
 		}
 
+		if _, err := tx.CreateBucketIfNotExists([]byte(trackerTriggerRefToSubsBktName)); err != nil {
+			return fmt.Errorf("failed to create top-level bucket %s: %w", trackerTriggerRefToSubsBktName, err)
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -54,7 +59,20 @@ func NewSubscription(fileName string, options bolt.Options) (*Subscriptions, err
 func (b *Subscriptions) Create(ctx context.Context, sub store.Subscription) (string, error) {
 	sub.ID = uuid.NewString()
 
-	// todo check for the same tracker/trigger pair, must be unique
+	err := b.db.View(func(tx *bolt.Tx) error {
+		ref := trackerTriggerRef(sub)
+		b := tx.Bucket([]byte(trackerTriggerRefToSubsBktName)).Get([]byte(ref))
+		if b == nil {
+			return nil
+		}
+
+		return fmt.Errorf("subscription with trigger %s already exists, id %s: %w", ref, b, errs.ErrExists)
+	})
+	if err != nil {
+		return "", fmt.Errorf("check if subscription with tracker-trigger pair %s already exists: %w",
+			trackerTriggerRef(sub), err)
+	}
+
 	if err := b.Update(ctx, sub); err != nil {
 		return "", fmt.Errorf("put subscription into storage: %w", err)
 	}
@@ -99,6 +117,12 @@ func (b *Subscriptions) Delete(_ context.Context, subID string) error {
 		if err = trkBkt.Delete([]byte(subID)); err != nil {
 			return fmt.Errorf("delete %s reference in %s tracker's bucket: %w", subID, sub.TrackerName, err)
 		}
+
+		ref := trackerTriggerRef(sub)
+		if err = tx.Bucket([]byte(trackerTriggerRefToSubsBktName)).Delete([]byte(ref)); err != nil {
+			return fmt.Errorf("delete %s reference fo tracker:trigger %s: %w", subID, ref, err)
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -132,6 +156,12 @@ func (b *Subscriptions) Update(_ context.Context, sub store.Subscription) error 
 		if err = bkt.Put([]byte(sub.ID), []byte(time.Now().Format(time.RFC3339Nano))); err != nil {
 			return fmt.Errorf("put %s subscription reference into %s tracker's bucket: %w",
 				sub.ID, sub.TrackerRef, err)
+		}
+
+		ref := trackerTriggerRef(sub)
+		if err = tx.Bucket([]byte(trackerTriggerRefToSubsBktName)).Put([]byte(ref), []byte(sub.ID)); err != nil {
+			return fmt.Errorf("put %s's tracker:trigger %s reference: %w",
+				sub.ID, ref, err)
 		}
 
 		return nil
@@ -182,4 +212,20 @@ func (b *Subscriptions) get(tx *bolt.Tx, subID string) (store.Subscription, erro
 		return store.Subscription{}, fmt.Errorf("unmarshal subscription: %w", err)
 	}
 	return sub, nil
+}
+
+func (b *Subscriptions) putReference(tx *bolt.Tx, bktName, ref, subID string) error {
+	bkt, err := tx.Bucket([]byte(bktName)).CreateBucketIfNotExists([]byte(ref))
+	if err != nil {
+		return fmt.Errorf("create bucket for %s ref: %w", ref, err)
+	}
+
+	if err = bkt.Put([]byte(subID), []byte(time.Now().Format(time.RFC3339Nano))); err != nil {
+		return fmt.Errorf("put %s subscription's reference into %s bucket: %w", subID, ref, err)
+	}
+	return nil
+}
+
+func trackerTriggerRef(sub store.Subscription) string {
+	return fmt.Sprintf("%s:%s", sub.TrackerName, sub.TriggerName)
 }

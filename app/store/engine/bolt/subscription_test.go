@@ -50,6 +50,9 @@ func TestSubscription_Create(t *testing.T) {
 		subBts = bkt.Get([]byte(id))
 		assert.NotEmpty(t, subBts)
 
+		b := tx.Bucket([]byte(trackerTriggerRefToSubsBktName)).Get([]byte("tracker-name:trigger-name"))
+		assert.Equal(t, []byte(id), b)
+
 		return nil
 	})
 	require.NoError(t, err)
@@ -84,6 +87,9 @@ func TestSubscription_Update(t *testing.T) {
 
 		subBts = bkt.Get([]byte("id"))
 		assert.NotEmpty(t, subBts)
+
+		b := tx.Bucket([]byte(trackerTriggerRefToSubsBktName)).Get([]byte("tracker-name:trigger-name"))
+		assert.Equal(t, []byte("id"), b)
 
 		return nil
 	})
@@ -160,6 +166,9 @@ func TestSubscription_Delete(t *testing.T) {
 		bkt, err := tx.Bucket([]byte(trackerToSubsBktName)).CreateBucketIfNotExists([]byte("tracker-name"))
 		require.NoError(t, err)
 		err = bkt.Put([]byte("id"), []byte("2006-01-02T15:04:05.999999999Z07:00"))
+		require.NoError(t, err)
+
+		err = tx.Bucket([]byte(trackerTriggerRefToSubsBktName)).Put([]byte("tracker-name:tracker-id"), []byte("id"))
 		require.NoError(t, err)
 		return nil
 	})
