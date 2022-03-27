@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/sync/errgroup"
+	"syscall"
 )
 
 // Run starts a tracker listener.
@@ -82,7 +83,7 @@ func (r Run) Execute(_ []string) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Interrupt)
+		signal.Notify(sig, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 		select {
 		case sig := <-sig:
 			r.Logger.Printf("[WARN] caught signal %s, stopping", sig)
@@ -155,7 +156,11 @@ func (r Run) prepareTrackers(flowStore engine.Flow) (map[string]tracker.Interfac
 func (r Run) prepareSubscriptionsStore() (engine.Subscriptions, error) {
 	switch r.Store.Type {
 	case "bolt":
-		subscriptions, err := boltEngs.NewSubscription(path.Join(r.Store.Bolt.Path, "subscriptions.db"), bolt.Options{Timeout: r.Store.Bolt.Timeout})
+		subscriptions, err := boltEngs.NewSubscription(
+			path.Join(r.Store.Bolt.Path, "subscriptions.db"),
+			bolt.Options{Timeout: r.Store.Bolt.Timeout},
+			r.Logger.Sub("[subscriptions store]: "),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("initialize bolt store: %w", err)
 		}

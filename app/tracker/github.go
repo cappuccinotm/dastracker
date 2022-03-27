@@ -208,6 +208,10 @@ func (g *Github) Unsubscribe(ctx context.Context, req UnsubscribeReq) error {
 		return fmt.Errorf("do request: %w", err)
 	}
 
+	if resp.StatusCode == http.StatusNotFound {
+		return errs.ErrNotFound
+	}
+
 	if resp.StatusCode != http.StatusNoContent {
 		return g.handleUnexpectedStatus(resp)
 	}

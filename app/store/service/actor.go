@@ -225,7 +225,7 @@ func (s *Actor) unregisterTriggers(ctx context.Context) {
 			err := s.Trackers[sub.TrackerName].Unsubscribe(ctx, tracker.UnsubscribeReq{
 				TrackerRef: sub.TrackerRef,
 			})
-			if err != nil {
+			if err != nil && !errors.Is(err, errs.ErrNotFound) {
 				s.Log.Printf("[WARN] failed to unsubscribe subscription %q from tracker %q with reference %q: %v",
 					sub.ID, sub.TrackerName, sub.TrackerRef, err)
 				return
