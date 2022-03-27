@@ -27,7 +27,7 @@ func main() {
 	p.CommandHandler = func(command flags.Commander, args []string) error {
 		logger := setupLog(opts.Debug)
 
-		// commands implements CommonOptionsCommander to allow passing set of extra options defined for all commands
+		// commands implement CommonOptionsCommander to allow passing set of extra options defined for all commands
 		c := command.(cmd.CommonOptionsCommander)
 		c.SetCommon(cmd.CommonOpts{
 			Version: version,

@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"syscall"
 	"time"
 
 	"github.com/cappuccinotm/dastracker/app/store"
@@ -78,13 +77,20 @@ func (r Run) Execute(_ []string) error {
 		UpdateTimeout:        r.UpdateTimeout,
 	}
 
-	eg, ctx := errgroup.WithContext(context.Background())
+	ctx, stop := context.WithCancel(context.Background())
+
+	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		stop := make(chan os.Signal, 1)
-		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-		<-stop
-		r.Logger.Printf("[WARN] interrupt signal")
-		return fmt.Errorf("interrupted")
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt)
+		select {
+		case sig := <-sig:
+			r.Logger.Printf("[WARN] caught signal %s, stopping", sig)
+			stop()
+			return fmt.Errorf("interrupted")
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	})
 	eg.Go(func() error {
 		if err := actor.Listen(ctx); err != nil {

@@ -36,10 +36,10 @@ type Actor struct {
 // Listen runs the updates' listener. Always returns non-nil error.
 // Blocking call.
 func (s *Actor) Listen(ctx context.Context) error {
+	defer s.unregisterTriggers(context.Background())
 	if err := s.registerTriggers(ctx); err != nil {
 		return fmt.Errorf("register triggers: %w", err)
 	}
-	defer s.unregisterTriggers(context.Background())
 
 	ewg, ctx := errgroup.WithContext(ctx)
 
@@ -109,9 +109,10 @@ func (s *Actor) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	if trk, registered := s.Trackers[sub.TrackerName]; registered {
 		trk.HandleWebhook(w, r)
+		return
 	}
-	s.Log.Printf("[WARN] failed to handle webhook for subscription %q: tracker %s not registered",
-		sub.ID, sub.TrackerName)
+	s.Log.Printf("[WARN] failed to handle webhook for subscription %q: %v",
+		sub.ID, errs.ErrTrackerNotRegistered(sub.TrackerName))
 }
 
 // runJob goes through the job's flow
