@@ -78,21 +78,9 @@ func (r Run) Execute(_ []string) error {
 		UpdateTimeout:        r.UpdateTimeout,
 	}
 
-	ctx, stop := context.WithCancel(context.Background())
+	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
 	eg, ctx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-		select {
-		case sig := <-sig:
-			r.Logger.Printf("[WARN] caught signal %s, stopping", sig)
-			stop()
-			return fmt.Errorf("interrupted")
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	})
 	eg.Go(func() error {
 		if err := actor.Listen(ctx); err != nil {
 			return fmt.Errorf("actor stopped listening, reason: %w", err)
