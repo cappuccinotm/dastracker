@@ -72,18 +72,14 @@ func TestActor_runJob(t *testing.T) {
 			},
 		}
 
-		err := svc.runJob(
+		err := svc.runSequence(
 			context.Background(),
-			store.Job{
-				Name:        "test-job",
-				TriggerName: "test-trigger",
-				Actions: []store.Action{
-					{Name: "tracker/create-or-update", With: map[string]string{
-						"msg":  "Task with id {{.Update.ReceivedFrom.ID}} has been updated",
-						"body": "Body: {{.Update.Content.Body}}",
-						"url":  "{{.Update.URL}}",
-					}},
-				},
+			[]store.Step{
+				store.Action{Name: "tracker/create-or-update", With: map[string]string{
+					"msg":  "Task with id {{.Update.ReceivedFrom.ID}} has been updated",
+					"body": "Body: {{.Update.Content.Body}}",
+					"url":  "{{.Update.URL}}",
+				}},
 			},
 			store.Update{
 				URL:          "https://blah.com",
@@ -143,18 +139,14 @@ func TestActor_runJob(t *testing.T) {
 			},
 		}
 
-		err := svc.runJob(
+		err := svc.runSequence(
 			context.Background(),
-			store.Job{
-				Name:        "test-job",
-				TriggerName: "test-trigger",
-				Actions: []store.Action{
-					{Name: "new-tracker/create-or-update", With: map[string]string{
-						"msg":  "Task with id {{.Update.ReceivedFrom.ID}} has been updated",
-						"body": "Body: {{.Update.Content.Body}}",
-						"url":  "{{.Update.URL}}",
-					}},
-				},
+			[]store.Step{
+				store.Action{Name: "new-tracker/create-or-update", With: map[string]string{
+					"msg":  "Task with id {{.Update.ReceivedFrom.ID}} has been updated",
+					"body": "Body: {{.Update.Content.Body}}",
+					"url":  "{{.Update.URL}}",
+				}},
 			},
 			store.Update{
 				URL:          "https://blah.com",

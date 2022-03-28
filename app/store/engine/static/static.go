@@ -84,21 +84,38 @@ func (c config) validate() error {
 		}
 	}
 
+	var validateSequence func(seq store.Sequence) error
+	validateSequence = func(seq store.Sequence) error {
+		for _, step := range seq {
+			switch step := step.(type) {
+			case store.Action:
+				tracker, _, err := step.Path()
+				if err != nil {
+					return fmt.Errorf("invalid action path: %w", err)
+				}
+				if _, trackerPresent := trackers[tracker]; !trackerPresent {
+					return fmt.Errorf("tracker %q, referred by action %q, is not registered: %w",
+						tracker, step.Name, errs.ErrNotFound)
+				}
+			case store.If:
+				if err := validateSequence(step.Actions); err != nil {
+					return fmt.Errorf("in if condition %q: %w", step.Condition, err)
+				}
+			default:
+				return fmt.Errorf("invalid step type %T", step)
+			}
+		}
+		return nil
+	}
+
 	for _, job := range c.Jobs {
 		if _, triggerPresent := triggers[job.TriggerName]; !triggerPresent {
 			return fmt.Errorf("trigger %q, referred by job %q, is not registered: %w",
 				job.TriggerName, job.Name, errs.ErrNotFound)
 		}
 
-		for _, act := range job.Actions {
-			tracker, _, err := act.Path()
-			if err != nil {
-				return fmt.Errorf("invalid action path: %w", err)
-			}
-			if _, trackerPresent := trackers[tracker]; !trackerPresent {
-				return fmt.Errorf("tracker %q, referred by action %q in job %q, is not registered: %w",
-					tracker, act.Name, job.Name, errs.ErrNotFound)
-			}
+		if err := validateSequence(job.Actions); err != nil {
+			return fmt.Errorf("in job %q: %w", job.Name, err)
 		}
 	}
 

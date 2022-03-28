@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"errors"
 	"github.com/cappuccinotm/dastracker/app/cmd"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
 	"github.com/hashicorp/logutils"
@@ -34,7 +35,7 @@ func main() {
 			Logger:  logger,
 		})
 
-		if err := command.Execute(args); err != nil {
+		if err := command.Execute(args); err != nil && !errors.Is(err, cmd.ErrInterrupted) {
 			logger.Printf("[ERROR] failed to execute command: %+v", err)
 		}
 		return nil

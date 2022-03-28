@@ -1,4 +1,5 @@
-# provided functions: env "NAME" - returns the value of environment variable NAME
+# provided functions:
+# env "NAME" - returns the value of environment variable NAME
 # values <map> - returns a list of values of the map
 # seq <list[string]> - serializes the list in form of "string1,string2,string3,..."
 
@@ -16,8 +17,6 @@ trackers:
     with:
       address: '{{ env "CUSTOM_RPC_ADDRESS" }}'
 
-# fixme what if there are the same triggers for jobs?
-
 triggers:
   - name: gh_task_updated
     in: gh_dastracker
@@ -28,7 +27,12 @@ jobs:
   - name: print task update if task is received
     on: gh_task_updated
     do:
-      - action: customrpc/Print
-        detached: true
-        with:
-          message: 'Task "{{.Update.Title}}" has been updated and printed to the terminal.'
+      - if: 'string_contains(Update.Title, "[PTT]")' # means "Print To Terminal"
+        do:
+          - action: customrpc/Print
+            detached: true
+            with:
+              message: |
+                Task "{{.Update.Title}}" has been updated and printed to the terminal. 
+                Body: 
+                {{.Update.Body}}

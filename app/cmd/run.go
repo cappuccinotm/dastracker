@@ -78,9 +78,21 @@ func (r Run) Execute(_ []string) error {
 		UpdateTimeout:        r.UpdateTimeout,
 	}
 
-	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	ctx, stop := context.WithCancel(context.Background())
 
 	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+		select {
+		case sig := <-sig:
+			r.Logger.Printf("[WARN] caught signal %s, stopping", sig)
+			stop()
+			return ErrInterrupted
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})
 	eg.Go(func() error {
 		if err := actor.Listen(ctx); err != nil {
 			return fmt.Errorf("actor stopped listening, reason: %w", err)
@@ -122,7 +134,7 @@ func (r Run) prepareTrackers(flowStore engine.Flow) (map[string]tracker.Interfac
 		switch trk.Driver {
 		case "rpc":
 			if res[trk.Name], err = tracker.NewJSONRPC(trk.Name, sublogger, trk.With); err != nil {
-				return nil, fmt.Errorf("initialize jsonrpc tracker %s: %w", trk.Name, err)
+				return nil, fmt.Errorf("initialize jsonrpc tracker %q: %w", trk.Name, err)
 			}
 		case "github":
 			if res[trk.Name], err = tracker.NewGithub(tracker.GithubParams{
@@ -131,10 +143,10 @@ func (r Run) prepareTrackers(flowStore engine.Flow) (map[string]tracker.Interfac
 				Client: &http.Client{Timeout: 5 * time.Second},
 				Logger: sublogger,
 			}); err != nil {
-				return nil, fmt.Errorf("initialize github tracker %s: %w", trk.Name, err)
+				return nil, fmt.Errorf("initialize github tracker %q: %w", trk.Name, err)
 			}
 		default:
-			return nil, fmt.Errorf("unsupported driver: %s", trk.Driver)
+			return nil, fmt.Errorf("unsupported driver: %q", trk.Driver)
 		}
 	}
 
@@ -154,7 +166,7 @@ func (r Run) prepareSubscriptionsStore() (engine.Subscriptions, error) {
 		}
 		return subscriptions, nil
 	default:
-		return nil, fmt.Errorf("unsupported store type: %s", r.Store.Type)
+		return nil, fmt.Errorf("unsupported store type: %q", r.Store.Type)
 	}
 }
 
@@ -167,6 +179,6 @@ func (r Run) prepareTicketsStore() (engine.Tickets, error) {
 		}
 		return tickets, nil
 	default:
-		return nil, fmt.Errorf("unsupported store type: %s", r.Store.Type)
+		return nil, fmt.Errorf("unsupported store type: %q", r.Store.Type)
 	}
 }

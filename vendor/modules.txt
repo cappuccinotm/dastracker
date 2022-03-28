@@ -1,3 +1,15 @@
+# github.com/antonmedv/expr v1.9.0
+## explicit; go 1.13
+github.com/antonmedv/expr
+github.com/antonmedv/expr/ast
+github.com/antonmedv/expr/checker
+github.com/antonmedv/expr/compiler
+github.com/antonmedv/expr/conf
+github.com/antonmedv/expr/file
+github.com/antonmedv/expr/optimizer
+github.com/antonmedv/expr/parser
+github.com/antonmedv/expr/parser/lexer
+github.com/antonmedv/expr/vm
 # github.com/cappuccinotm/dastracker/lib v0.0.0-00010101000000-000000000000 => ./lib
 ## explicit; go 1.17
 github.com/cappuccinotm/dastracker/lib
