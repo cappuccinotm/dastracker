@@ -9,8 +9,9 @@ import (
 
 // Standard errors.
 var (
-	ErrNotFound = errors.New("resource not found")
-	ErrExists   = errors.New("resource already exists")
+	ErrNotFound  = errors.New("resource not found")
+	ErrExists    = errors.New("resource already exists")
+	ErrIfNotBool = errors.New("if must return a boolean value")
 )
 
 // ErrMethodParseFailed indicates that the Request contains
@@ -19,7 +20,7 @@ type ErrMethodParseFailed string
 
 // Error returns the string representation of the error.
 func (e ErrMethodParseFailed) Error() string {
-	return fmt.Sprintf("method path is invalid: %s", string(e))
+	return fmt.Sprintf("method path is invalid: %q", string(e))
 }
 
 // ErrTrackerNotRegistered indicates about the call to the tracker, that was

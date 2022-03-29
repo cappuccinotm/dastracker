@@ -262,7 +262,7 @@ func TestGithub_HandleWebhook(t *testing.T) {
 		"issue": {
 			"number": 12345,
 			"title": "title",
-			"description": "body",
+			"body": "body",
 			"url": "update-url"
 		}
 	}`)

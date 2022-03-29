@@ -91,7 +91,8 @@ func (s *Actor) handleUpdate(ctx context.Context, upd store.Update) {
 	for _, job := range jobs {
 		job := job
 		swg.Go(func(ctx context.Context) {
-			if err := s.runJob(ctx, job, upd); err != nil {
+			s.Log.Printf("[DEBUG] running job %q, triggered by %q", job.Name, job.TriggerName)
+			if err := s.runSequence(ctx, job.Actions, upd); err != nil {
 				s.Log.Printf("[WARN] failed to handle update %v for job %q: %v", upd, job.Name, err)
 				return
 			}
@@ -115,10 +116,7 @@ func (s *Actor) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		sub.ID, errs.ErrTrackerNotRegistered(sub.TrackerName))
 }
 
-// runJob goes through the job's flow
-func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) error {
-	s.Log.Printf("[DEBUG] running job %s, triggered by %s", job.Name, job.TriggerName)
-
+func (s *Actor) runSequence(ctx context.Context, seq store.Sequence, upd store.Update) error {
 	ticket, err := s.TicketsStore.Get(ctx, engine.GetRequest{Locator: upd.ReceivedFrom})
 	if err != nil && !errors.Is(err, errs.ErrNotFound) {
 		return fmt.Errorf("get ticket by locator %s: %w", upd.ReceivedFrom, err)
@@ -126,27 +124,26 @@ func (s *Actor) runJob(ctx context.Context, job store.Job, upd store.Update) err
 
 	ticket.Patch(upd)
 
-	for _, act := range job.Actions {
-		// TODO(semior): add support of detached calls
-		vars, err := store.Evaluate(act.With, upd)
-		if err != nil {
-			return fmt.Errorf("evaluate variables for %q action: %w", act.Name, err)
+	for _, step := range seq {
+		switch step := step.(type) {
+		case store.Action:
+			if ticket, err = s.act(ctx, step, ticket, upd); err != nil {
+				return fmt.Errorf("act: %w", err)
+			}
+		case store.If:
+			b, err := step.Eval(upd)
+			if err != nil {
+				return fmt.Errorf("evaluate if: %w", err)
+			}
+			if !b {
+				continue
+			}
+			if err := s.runSequence(ctx, step.Actions, upd); err != nil {
+				return fmt.Errorf("run sequence: %w", err)
+			}
+		default:
+			panic(fmt.Sprintf("unknown step type %T", step))
 		}
-
-		trkName, method := parseMethodURI(act.Name)
-
-		s.Log.Printf("[DEBUG] running action %s with vars %+v", act.Name, vars)
-		resp, err := s.Trackers[trkName].Call(ctx, tracker.Request{
-			TaskID: ticket.TrackerIDs.Get(trkName),
-			Method: method,
-			Vars:   vars,
-		})
-		if err != nil {
-			return fmt.Errorf("call to %s: %w", act.Name, err)
-		}
-		s.Log.Printf("[DEBUG] received response from tracker %s on action %s: %v", trkName, act.Name, resp)
-
-		ticket.TrackerIDs.Set(trkName, resp.TaskID)
 	}
 
 	if ticket.ID == "" {
@@ -237,6 +234,30 @@ func (s *Actor) unregisterTriggers(ctx context.Context) {
 	}
 
 	wg.Wait()
+}
+
+func (s *Actor) act(ctx context.Context, act store.Action, ticket store.Ticket, upd store.Update) (store.Ticket, error) {
+	// TODO(semior): add support of detached calls
+	vars, err := store.Evaluate(act.With, upd)
+	if err != nil {
+		return store.Ticket{}, fmt.Errorf("evaluate variables for %q action: %w", act.Name, err)
+	}
+
+	trkName, method := parseMethodURI(act.Name)
+
+	s.Log.Printf("[DEBUG] running action %s with vars %+v", act.Name, vars)
+	resp, err := s.Trackers[trkName].Call(ctx, tracker.Request{
+		TaskID: ticket.TrackerIDs.Get(trkName),
+		Method: method,
+		Vars:   vars,
+	})
+	if err != nil {
+		return store.Ticket{}, fmt.Errorf("call to %s: %w", act.Name, err)
+	}
+	s.Log.Printf("[DEBUG] received response from tracker %s on action %s: %v", trkName, act.Name, resp)
+
+	ticket.TrackerIDs.Set(trkName, resp.TaskID)
+	return ticket, nil
 }
 
 func parseMethodURI(s string) (tracker, method string) {

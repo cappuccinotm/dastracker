@@ -7,10 +7,26 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/antonmedv/expr"
+	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/lib"
 )
 
-type evTmpl struct{ Update Update }
+// Eval evaluates a predicate.
+func (i If) Eval(upd Update) (bool, error) {
+	env := map[string]interface{}{"Update": upd}
+	copyFuncs(env)
+
+	v, err := expr.Eval(i.Condition, env)
+	if err != nil {
+		return false, fmt.Errorf("evaluate expression: %w", err)
+	}
+	vv, ok := v.(bool)
+	if !ok {
+		return false, fmt.Errorf("expression %q, got type %T: %w", i.Condition, v, errs.ErrIfNotBool)
+	}
+	return vv, nil
+}
 
 // Evaluate evaluates the final values of each variable.
 func Evaluate(v lib.Vars, upd Update) (lib.Vars, error) {
@@ -26,7 +42,7 @@ func Evaluate(v lib.Vars, upd Update) (lib.Vars, error) {
 		}
 
 		buf := &bytes.Buffer{}
-		if err = tmpl.Execute(buf, evTmpl{Update: upd}); err != nil {
+		if err = tmpl.Execute(buf, map[string]interface{}{"Update": upd}); err != nil {
 			return lib.Vars{}, fmt.Errorf("evaluate the value of the %q variable: %w", key, err)
 		}
 
@@ -56,4 +72,11 @@ var funcs = map[string]interface{}{
 	"seq": func(s []string) string {
 		return strings.Join(s, ",")
 	},
+	"string_contains": strings.Contains,
+}
+
+func copyFuncs(f map[string]interface{}) {
+	for k, v := range funcs {
+		f[k] = v
+	}
 }

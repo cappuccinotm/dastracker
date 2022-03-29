@@ -226,10 +226,10 @@ func (g *Github) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	var ghUpdate struct {
 		Action string `json:"action"`
 		Issue  struct {
-			ID          int64  `json:"number"`
-			Title       string `json:"title"`
-			Description string `json:"description"`
-			URL         string `json:"url"`
+			ID    int64  `json:"number"`
+			Title string `json:"title"`
+			Body  string `json:"body"`
+			URL   string `json:"url"`
 		} `json:"issue"`
 	}
 
@@ -245,7 +245,7 @@ func (g *Github) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 			ID:      strconv.FormatInt(ghUpdate.Issue.ID, 10),
 		},
 		Content: store.Content{
-			Body:   ghUpdate.Issue.Description,
+			Body:   ghUpdate.Issue.Body,
 			Title:  ghUpdate.Issue.Title,
 			Fields: nil, // todo
 		},

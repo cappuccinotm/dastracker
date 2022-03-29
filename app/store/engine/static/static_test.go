@@ -86,7 +86,7 @@ func TestNewStatic(t *testing.T) {
 				Jobs: []store.Job{{
 					Name:        "print task update if task is received",
 					TriggerName: "gh_task_updated",
-					Actions: []store.Action{{
+					Actions: []store.Step{store.Action{
 						Name:     "customrpc/Print",
 						Detached: true,
 						With: lib.Vars{
@@ -100,7 +100,7 @@ func TestNewStatic(t *testing.T) {
 					{
 						Name:        "print task update if task is received",
 						TriggerName: "gh_task_updated",
-						Actions: []store.Action{{
+						Actions: []store.Step{store.Action{
 							Name:     "customrpc/Print",
 							Detached: true,
 							With: lib.Vars{

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"github.com/cappuccinotm/dastracker/pkg/logx"
 )
 
@@ -23,3 +24,6 @@ func (c *CommonOpts) SetCommon(opts CommonOpts) {
 	c.Version = opts.Version
 	c.Logger = opts.Logger
 }
+
+// ErrInterrupted is returned when the signal to application to stop was caught.
+var ErrInterrupted = errors.New("interrupted")
