@@ -74,7 +74,10 @@ jobs:
 This flow checks whether any issue in github is updated and sends an RPC call to Print method with the
 specified message.
 
-The configuration file uses the [go template language](https://pkg.go.dev/text/template) for placeholders.
+The configuration file uses the [go template language](https://pkg.go.dev/text/template) for placeholders 
+and [expr language syntax](https://github.com/antonmedv/expr) for evaluating conditions for `if` steps.
+
+Notice, that the condition references to update without leading dot, e.g. `Update.Title`.
 
 `with` keyword specifies variables for each Action.
 
