@@ -194,6 +194,9 @@ func (s *Actor) registerTriggers(ctx context.Context) error {
 				return fmt.Errorf("set tracker reference %q in subscription %q: %w", resp.TrackerRef, sub.ID, err)
 			}
 
+			s.Log.Printf("[DEBUG] registered subscription %q in %q, received tracker reference: %q",
+				trigger.Name, trigger.Tracker, resp.TrackerRef)
+
 			return nil
 		})
 	}
@@ -230,6 +233,9 @@ func (s *Actor) unregisterTriggers(ctx context.Context) {
 			if err = s.SubscriptionsManager.Delete(ctx, sub.ID); err != nil {
 				s.Log.Printf("[WARN] failed to delete subscription %q: %v", sub.ID, err)
 			}
+
+			s.Log.Printf("[DEBUG] unregistered subscription with id %q, trigger %q in %q, with tracker reference: %q",
+				sub.ID, sub.TriggerName, sub.TrackerName, sub.TrackerRef)
 		}()
 	}
 

@@ -9,7 +9,7 @@ type Request struct {
 
 // Ticket describes an updated task representation in dastracker.
 type Ticket struct {
-	ID     string            `json:"id"`
+	URL    string            `json:"url"`
 	TaskID string            `json:"task_id"`
 	Title  string            `json:"title"`
 	Body   string            `json:"body"`
@@ -21,20 +21,18 @@ type Response struct {
 	TaskID string `json:"task_id"` // optional, id of the created task in the tracker
 }
 
-// URLKey is a kludge to pass the URL of the webhook to the plugin.
-const URLKey = "_url"
-
 // SubscribeReq describes parameters of the subscription for task updates.
 type SubscribeReq struct {
-	WebhookID string `json:"webhookID"`
-	Vars      Vars   `json:"vars"`
+	WebhookURL string `json:"webhook_url"`
+	Vars       Vars   `json:"vars"`
 }
 
-// WebhookURL returns the url of the webhook, provided by dastracker.
-func (r SubscribeReq) WebhookURL() string { return r.Vars.Get(URLKey) }
+// SubscribeResp describes the response of the subscription request.
+type SubscribeResp struct {
+	TrackerRef string `json:"tracker_ref"`
+}
 
 // UnsubscribeReq describes parameters of the unsubscription from task updates.
 type UnsubscribeReq struct {
-	WebhookID string `json:"webhookID"`
-	Vars      Vars   `json:"vars"`
+	TrackerRef string `json:"tracker_ref"`
 }

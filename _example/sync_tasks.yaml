@@ -1,8 +1,3 @@
-# provided functions:
-# env "NAME" - returns the value of environment variable NAME
-# values <map> - returns a list of values of the map
-# seq <list[string]> - serializes the list in form of "string1,string2,string3,..."
-
 trackers:
   - name: gh_dastracker
     driver: github
@@ -22,6 +17,10 @@ triggers:
     in: gh_dastracker
     with:
       events: "issues"
+  - name: test_customrpc_subscribe
+    in: customrpc
+    with:
+      events: "subscribe"
 
 jobs:
   - name: print task update if task is received
