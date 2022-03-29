@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	"github.com/cappuccinotm/dastracker/app/errs"
+	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestAction_Path(t *testing.T) {
@@ -32,5 +34,39 @@ func TestAction_Path(t *testing.T) {
 				assert.Equal(t, "", mtd)
 			})
 		}
+	})
+}
+
+func TestSequence_UnmarshalYAML(t *testing.T) {
+	t.Run("mixed if/action in the same sequence", func(t *testing.T) {
+		const data = "\n" +
+			"- action: someActionName         \n" +
+			"  detached: true                 \n" +
+			"  with:                          \n" +
+			"    key: value                   \n" +
+			"- if: someCondition              \n" +
+			"  do:                            \n" +
+			"    - action: someNestedAction   \n" +
+			"      detached: false            \n"
+
+		var seq Sequence
+		err := yaml.Unmarshal([]byte(data), &seq)
+		require.NoError(t, err)
+		assert.Equal(t, Sequence{
+			Action{
+				Name:     "someActionName",
+				Detached: true,
+				With:     lib.Vars{"key": "value"},
+			},
+			If{
+				Condition: "someCondition",
+				Actions: Sequence{
+					Action{
+						Name:     "someNestedAction",
+						Detached: false,
+					},
+				},
+			},
+		}, seq)
 	})
 }

@@ -4,8 +4,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/lib"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEvaluate(t *testing.T) {
@@ -27,4 +29,31 @@ func TestEvaluate(t *testing.T) {
 	assert.Contains(t, []string{"f1,f2", "f2,f1"}, vs["var2"])
 	assert.Contains(t, []string{"f1v,f2v", "f2v,f1v"}, vs["var3"])
 	assert.Equal(t, "static text", vs["var4"])
+}
+
+func TestIf_Eval(t *testing.T) {
+	b, err := If{Condition: `string_contains(Update.Title, "[PTT]")`}.
+		Eval(Update{Content: Content{
+			Title: "[PTT] something",
+		}})
+	require.NoError(t, err)
+	assert.True(t, b)
+
+	b, err = If{Condition: `string_contains(Update.Title, "[PTT]")`}.
+		Eval(Update{Content: Content{
+			Title: "something",
+		}})
+	require.NoError(t, err)
+	assert.False(t, b)
+
+	b, err = If{Condition: `keys(Update.Fields)`}.
+		Eval(Update{Content: Content{
+			Fields: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+				"k3": "v3",
+			},
+		}})
+	assert.ErrorIs(t, err, errs.ErrIfNotBool)
+	assert.False(t, b)
 }
