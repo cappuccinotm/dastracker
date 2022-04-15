@@ -1,3 +1,5 @@
+//go:build blah
+
 package tracker
 
 import (

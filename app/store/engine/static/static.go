@@ -89,9 +89,9 @@ func (c config) validate() error {
 		for _, step := range seq {
 			switch step := step.(type) {
 			case store.Action:
-				tracker, _, err := step.Path()
-				if err != nil {
-					return fmt.Errorf("invalid action path: %w", err)
+				tracker, method := step.Path()
+				if tracker == "" || method == "" {
+					return errs.ErrMethodParseFailed(step.Name)
 				}
 				if _, trackerPresent := trackers[tracker]; !trackerPresent {
 					return fmt.Errorf("tracker %q, referred by action %q, is not registered: %w",

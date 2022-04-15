@@ -3,11 +3,37 @@ package lib
 import (
 	"strings"
 
+	"fmt"
 	"gopkg.in/yaml.v3"
+	"reflect"
 )
 
 // Vars is an alias for a map with variable values.
 type Vars map[string]string
+
+func (v *Vars) LoadTo(src interface{}) error {
+	if v == nil {
+		return nil
+	}
+
+	val := reflect.ValueOf(src)
+	if val.Kind() != reflect.Pointer {
+		return fmt.Errorf("expected pointer, got %s", val.Kind())
+	}
+
+	val = val.Elem()
+
+	if val.Kind() != reflect.Struct {
+		return fmt.Errorf("pointer must be a reference to struct, got %s", val.Kind())
+	}
+
+	for fieldIdx := 0; fieldIdx < val.NumField(); fieldIdx++ {
+		field := val.Field(fieldIdx)
+		field.Set()
+		// todo
+	}
+
+}
 
 // UnmarshalYAML implements unmarshaler in order to parse the map of values.
 func (v *Vars) UnmarshalYAML(value *yaml.Node) error {

@@ -1,0 +1,42 @@
+trackers:
+  - name: gl_specification_service
+    driver: rpc
+    with:
+      address: '{{ env "GITLAB_SS_ADDRESS" }}'
+  - name: jira
+    driver: rpc
+    with:
+      address: '{{ env "JIRA_ADDRESS" }}'
+  - name: slack
+    driver: rpc
+    with:
+      address: '{{ env "SLACK_ADDRESS" }}'
+
+triggers:
+  - name: mr_updated
+    in: gl_specification_service
+    with:
+      merge_requests_events: true
+
+jobs:
+  - name: update task status and send mr to slack when not draft
+    on: mr_updated
+    do:
+      - if: '!string_contains(Update.Title, "Draft")'
+        do:
+          - action: jira/update_task
+            detached: true
+            with:
+              status: Code Review
+          - action: slack/send_message
+            detached: true
+            with:
+              message: |
+                [{{ .Update.Title }}]({{ .Update.URL }}) is ready for review
+              channel: '{{ env "SLACK_CHANNEL" }}'
+          - action: gl_specification_service/deploy
+            detached: true
+            with:
+              stand: dev
+              message: '{{ (.Variations.Get "jira").Title }}'
+
