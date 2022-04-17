@@ -31,12 +31,11 @@ jobs:
           - action: slack/send_message
             detached: true
             with:
-              message: |
-                [{{ .Update.Title }}]({{ .Update.URL }}) is ready for review
+              message: '[{{ .Update.Title }}]({{ .Update.URL }}) is ready for review'
               channel: '{{ env "SLACK_CHANNEL" }}'
           - action: gl_specification_service/deploy
             detached: true
             with:
               stand: dev
-              message: '{{ (.Variations.Get "jira").Title }}'
+              message: '{{ (.Ticket.Variations.Get "jira").Title }}'
 

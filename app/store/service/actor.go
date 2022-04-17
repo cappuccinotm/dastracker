@@ -126,7 +126,7 @@ func (s *Actor) registerTriggers(ctx context.Context) error {
 	for _, trigger := range triggers {
 		trigger := trigger
 		ewg.Go(func() error {
-			vars, err := store.Evaluate(trigger.With, store.Update{})
+			vars, err := store.Evaluate(trigger.With, store.EvalData{})
 			if err != nil {
 				return fmt.Errorf("evaluate variables for %q trigger: %w", trigger.Name, err)
 			}
@@ -203,7 +203,7 @@ func (s *Actor) runSequence(ctx context.Context, seq store.Sequence, upd store.U
 	}
 
 	// set the task id if it's not set yet
-	if _, ok := ticket.Variations.Get(upd.ReceivedFrom.Tracker); !ok {
+	if !ticket.Variations.Has(upd.ReceivedFrom.Tracker) {
 		ticket.Variations.Set(upd.ReceivedFrom.Tracker, store.Task{ID: upd.ReceivedFrom.ID})
 	}
 
@@ -256,7 +256,7 @@ func (s *Actor) runSequence(ctx context.Context, seq store.Sequence, upd store.U
 
 func (s *Actor) act(ctx context.Context, act store.Action, ticket store.Ticket, upd store.Update) (store.Ticket, error) {
 	// TODO(semior): add support of detached calls
-	vars, err := store.Evaluate(act.With, upd)
+	vars, err := store.Evaluate(act.With, store.EvalData{Update: upd, Ticket: ticket})
 	if err != nil {
 		return store.Ticket{}, fmt.Errorf("evaluate variables for %q action: %w", act.Name, err)
 	}
@@ -265,10 +265,8 @@ func (s *Actor) act(ctx context.Context, act store.Action, ticket store.Ticket, 
 
 	s.Log.Printf("[DEBUG] running action %s with vars %+v", act.Name, vars)
 
-	task, _ := ticket.Variations.Get(trkName)
-
 	resp, err := s.Trackers[trkName].Call(ctx, tracker.Request{
-		TaskID: task.ID,
+		TaskID: ticket.Variations.Get(trkName).ID,
 		Method: method,
 		Vars:   vars,
 	})

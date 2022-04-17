@@ -43,12 +43,20 @@ func (v *Variations) Set(tracker string, task Task) {
 }
 
 // Get returns the task for the given tracker.
-func (v Variations) Get(tracker string) (Task, bool) {
+func (v Variations) Get(tracker string) Task {
 	if v == nil {
-		return Task{}, false
+		return Task{}
 	}
-	task, ok := v[tracker]
-	return task, ok
+	return v[tracker]
+}
+
+// Has returns true if the given tracker is present in the variations of ticket.
+func (v Variations) Has(tracker string) bool {
+	if v == nil {
+		return false
+	}
+	_, ok := v[tracker]
+	return ok
 }
 
 // Locators returns the task tracker and task ID of the ticket in each
