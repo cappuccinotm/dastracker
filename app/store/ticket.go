@@ -1,12 +1,6 @@
 package store
 
-import (
-	"fmt"
-
-	"github.com/cappuccinotm/dastracker/app/errs"
-)
-
-// Content contains the data in the ticket itself.
+// Content contains the data in the task itself.
 type Content struct {
 	Body   string       `json:"body"`
 	Title  string       `json:"title"`
@@ -20,67 +14,68 @@ type TicketFields map[string]string
 // Ticket describes a basic task/ticket in task tracker.
 type Ticket struct {
 	ID         string     `json:"id"`
-	TrackerIDs TrackerIDs `json:"tracker_ids"`
-
-	Content
+	Variations Variations `json:"variations"` // map[tracker name]Task
 }
 
 // Patch updates ticket fields with given update values.
 func (t *Ticket) Patch(upd Update) {
-	t.Content = upd.Content
-	if !upd.ReceivedFrom.Empty() {
-		t.TrackerIDs.Set(upd.ReceivedFrom.Tracker, upd.ReceivedFrom.ID)
-	}
+	t.Variations.Set(upd.ReceivedFrom.Tracker, Task{
+		ID:      upd.ReceivedFrom.ID,
+		Content: upd.Content,
+	})
 }
 
-// TrackerIDs is a wrapper for a set of trackerIDs.
-// Key - tracker name, value - task ID.
-type TrackerIDs map[string]string
-
-// Add checks that the given tracker doesn't already have an assigned task
-// and if it has, returns error, otherwise adds the task ID to the list of ids.
-func (m *TrackerIDs) Add(trackerName, taskID string) error {
-	if m == nil {
-		*m = map[string]string{}
-	}
-	if existingTaskID, ok := (*m)[trackerName]; ok {
-		return fmt.Errorf("tracker %q already has a task with id %q, id %q is ambiguous: %w",
-			trackerName, existingTaskID, taskID, errs.ErrExists)
-	}
-	(*m)[trackerName] = taskID
-	return nil
+// Task represents a variation of the Ticket in a particular task tracker.
+type Task struct {
+	ID string `json:"ID"`
+	Content
 }
 
-// Set sets the task ID in the list of trackers.
-func (m *TrackerIDs) Set(trackerName, taskID string) {
-	if *m == nil {
-		*m = map[string]string{}
+// Variations is a set of Ticket variations in task trackers.
+type Variations map[string]Task
+
+// Set sets the task in the ticket
+func (v *Variations) Set(tracker string, task Task) {
+	if *v == nil {
+		*v = make(Variations)
 	}
-	(*m)[trackerName] = taskID
+	(*v)[tracker] = task
 }
 
-// Locators returns a list of locators from the map of trackerIDs.
-func (m TrackerIDs) Locators() []Locator {
-	res := make([]Locator, 0, len(m))
-	for name, id := range m {
-		res = append(res, Locator{Tracker: name, ID: id})
+// Get returns the task for the given tracker.
+func (v Variations) Get(tracker string) Task {
+	if v == nil {
+		return Task{}
 	}
-	return res
+	return v[tracker]
 }
 
-// Get returns the tracker ID for the given tracker name.
-func (m TrackerIDs) Get(name string) string {
-	if m == nil {
-		return ""
+// Has returns true if the given tracker is present in the variations of ticket.
+func (v Variations) Has(tracker string) bool {
+	if v == nil {
+		return false
 	}
-	return m[name]
+	_, ok := v[tracker]
+	return ok
+}
+
+// Locators returns the task tracker and task ID of the ticket in each
+// registered task tracker.
+func (v Variations) Locators() []Locator {
+	locators := make([]Locator, 0, len(v))
+	for tracker, task := range v {
+		locators = append(locators, Locator{
+			Tracker: tracker,
+			ID:      task.ID,
+		})
+	}
+	return locators
 }
 
 // Update describes a ticket update.
 type Update struct {
-	URL          string  `json:"url"`
 	ReceivedFrom Locator `json:"received_from"`
-
+	URL          string  `json:"url"`
 	Content
 }
 

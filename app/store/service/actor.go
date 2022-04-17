@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/cappuccinotm/dastracker/app/errs"
@@ -116,51 +115,6 @@ func (s *Actor) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		sub.ID, errs.ErrTrackerNotRegistered(sub.TrackerName))
 }
 
-func (s *Actor) runSequence(ctx context.Context, seq store.Sequence, upd store.Update) error {
-	ticket, err := s.TicketsStore.Get(ctx, engine.GetRequest{Locator: upd.ReceivedFrom})
-	if err != nil && !errors.Is(err, errs.ErrNotFound) {
-		return fmt.Errorf("get ticket by locator %s: %w", upd.ReceivedFrom, err)
-	}
-
-	ticket.Patch(upd)
-
-	for _, step := range seq {
-		switch step := step.(type) {
-		case store.Action:
-			if ticket, err = s.act(ctx, step, ticket, upd); err != nil {
-				return fmt.Errorf("act: %w", err)
-			}
-		case store.If:
-			b, err := step.Eval(upd)
-			if err != nil {
-				return fmt.Errorf("evaluate if: %w", err)
-			}
-			if !b {
-				continue
-			}
-			if err := s.runSequence(ctx, step.Actions, upd); err != nil {
-				return fmt.Errorf("run sequence: %w", err)
-			}
-		default:
-			panic(fmt.Sprintf("unknown step type %T", step))
-		}
-	}
-
-	if ticket.ID == "" {
-		if ticket.ID, err = s.TicketsStore.Create(ctx, ticket); err != nil {
-			return fmt.Errorf("create ticket: %w", err)
-		}
-
-		return nil
-	}
-
-	if err = s.TicketsStore.Update(ctx, ticket); err != nil {
-		return fmt.Errorf("update ticket from %s: %w", upd.ReceivedFrom, err)
-	}
-
-	return nil
-}
-
 func (s *Actor) registerTriggers(ctx context.Context) error {
 	triggers, err := s.Flow.ListTriggers(ctx)
 	if err != nil {
@@ -172,7 +126,7 @@ func (s *Actor) registerTriggers(ctx context.Context) error {
 	for _, trigger := range triggers {
 		trigger := trigger
 		ewg.Go(func() error {
-			vars, err := store.Evaluate(trigger.With, store.Update{})
+			vars, err := store.Evaluate(trigger.With, store.EvalData{})
 			if err != nil {
 				return fmt.Errorf("evaluate variables for %q trigger: %w", trigger.Name, err)
 			}
@@ -242,18 +196,77 @@ func (s *Actor) unregisterTriggers(ctx context.Context) {
 	wg.Wait()
 }
 
+func (s *Actor) runSequence(ctx context.Context, seq store.Sequence, upd store.Update) error {
+	ticket, err := s.TicketsStore.Get(ctx, engine.GetRequest{Locator: upd.ReceivedFrom})
+	if err != nil && !errors.Is(err, errs.ErrNotFound) {
+		return fmt.Errorf("get ticket by locator %s: %w", upd.ReceivedFrom, err)
+	}
+
+	// set the task id if it's not set yet
+	if !ticket.Variations.Has(upd.ReceivedFrom.Tracker) {
+		ticket.Variations.Set(upd.ReceivedFrom.Tracker, store.Task{ID: upd.ReceivedFrom.ID})
+	}
+
+	modifiesUpdatedTask := false
+
+	for _, step := range seq {
+		switch step := step.(type) {
+		case store.Action:
+			if trk, _ := step.Path(); upd.ReceivedFrom.Tracker == trk {
+				modifiesUpdatedTask = true
+			}
+
+			if ticket, err = s.act(ctx, step, ticket, upd); err != nil {
+				return fmt.Errorf("act: %w", err)
+			}
+		case store.If:
+			b, err := step.Eval(upd)
+			if err != nil {
+				return fmt.Errorf("evaluate if: %w", err)
+			}
+			if !b {
+				continue
+			}
+			if err := s.runSequence(ctx, step.Actions, upd); err != nil {
+				return fmt.Errorf("run sequence: %w", err)
+			}
+		default:
+			panic(fmt.Sprintf("unknown step type %T", step))
+		}
+	}
+
+	if !modifiesUpdatedTask {
+		ticket.Patch(upd)
+	}
+
+	if ticket.ID == "" {
+		if _, err = s.TicketsStore.Create(ctx, ticket); err != nil {
+			return fmt.Errorf("create ticket: %w", err)
+		}
+
+		return nil
+	}
+
+	if err = s.TicketsStore.Update(ctx, ticket); err != nil {
+		return fmt.Errorf("update ticket from %s: %w", upd.ReceivedFrom, err)
+	}
+
+	return nil
+}
+
 func (s *Actor) act(ctx context.Context, act store.Action, ticket store.Ticket, upd store.Update) (store.Ticket, error) {
 	// TODO(semior): add support of detached calls
-	vars, err := store.Evaluate(act.With, upd)
+	vars, err := store.Evaluate(act.With, store.EvalData{Update: upd, Ticket: ticket})
 	if err != nil {
 		return store.Ticket{}, fmt.Errorf("evaluate variables for %q action: %w", act.Name, err)
 	}
 
-	trkName, method := parseMethodURI(act.Name)
+	trkName, method := act.Path()
 
 	s.Log.Printf("[DEBUG] running action %s with vars %+v", act.Name, vars)
+
 	resp, err := s.Trackers[trkName].Call(ctx, tracker.Request{
-		TaskID: ticket.TrackerIDs.Get(trkName),
+		TaskID: ticket.Variations.Get(trkName).ID,
 		Method: method,
 		Vars:   vars,
 	})
@@ -262,11 +275,6 @@ func (s *Actor) act(ctx context.Context, act store.Action, ticket store.Ticket, 
 	}
 	s.Log.Printf("[DEBUG] received response from tracker %s on action %s: %v", trkName, act.Name, resp)
 
-	ticket.TrackerIDs.Set(trkName, resp.TaskID)
+	ticket.Variations.Set(trkName, resp.Task)
 	return ticket, nil
-}
-
-func parseMethodURI(s string) (tracker, method string) {
-	dividerIdx := strings.IndexRune(s, '/')
-	return s[:dividerIdx], s[dividerIdx+1:]
 }

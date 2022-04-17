@@ -54,7 +54,7 @@ func (rpc *JSONRPC) Call(ctx context.Context, req Request) (Response, error) {
 		return Response{}, fmt.Errorf("call remote method %s: %w", req.Method, err)
 	}
 
-	return Response{TaskID: resp.TaskID}, nil
+	return rpc.transformResponse(resp), nil
 }
 
 // Subscribe sends subscribe call to the remote JSONRPC server.
@@ -84,7 +84,7 @@ func (rpc *JSONRPC) Unsubscribe(ctx context.Context, req UnsubscribeReq) error {
 func (rpc *JSONRPC) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var ticket lib.Ticket
+	var ticket lib.Task
 	if err := json.NewDecoder(r.Body).Decode(&ticket); err != nil {
 		rpc.l.Printf("[WARN] failed to decode webhook update: %v", err)
 		return
@@ -94,7 +94,7 @@ func (rpc *JSONRPC) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		URL: ticket.URL,
 		ReceivedFrom: store.Locator{
 			Tracker: rpc.name,
-			ID:      ticket.TaskID,
+			ID:      ticket.ID,
 		},
 		Content: store.Content{
 			Body:   ticket.Body,
@@ -110,4 +110,15 @@ func (rpc *JSONRPC) Listen(ctx context.Context, h Handler) error {
 	rpc.handler = h
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+func (rpc *JSONRPC) transformResponse(resp lib.Response) Response {
+	return Response{Task: store.Task{
+		ID: resp.Task.ID,
+		Content: store.Content{
+			Body:   resp.Task.Body,
+			Title:  resp.Task.Title,
+			Fields: resp.Task.Fields,
+		},
+	}}
 }

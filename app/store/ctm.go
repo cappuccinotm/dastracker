@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"fmt"
-	"github.com/cappuccinotm/dastracker/app/errs"
 	"github.com/cappuccinotm/dastracker/lib"
 	"gopkg.in/yaml.v3"
 )
@@ -80,11 +79,11 @@ type Action struct {
 }
 
 // Path parses the action name to the tracker name and its method.
-func (a Action) Path() (tracker, method string, err error) {
+func (a Action) Path() (tracker, method string) {
 	dividerIdx := strings.IndexRune(a.Name, '/')
 	if dividerIdx == -1 || dividerIdx == len(a.Name)-1 || dividerIdx == 0 {
-		return "", "", errs.ErrMethodParseFailed(a.Name)
+		return "", ""
 	}
 
-	return a.Name[:dividerIdx], a.Name[dividerIdx+1:], nil
+	return a.Name[:dividerIdx], a.Name[dividerIdx+1:]
 }

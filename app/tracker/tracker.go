@@ -49,7 +49,7 @@ type Request struct {
 
 // Response describes possible return values of the Interface.Call
 type Response struct {
-	TaskID string // id of the created task in the tracker.
+	Task store.Task
 }
 
 // SubscribeReq describes parameters of the subscription for task updates.

@@ -125,7 +125,7 @@ func (r Run) prepareTrackers(flowStore engine.Flow) (map[string]tracker.Interfac
 
 	res := map[string]tracker.Interface{}
 	for _, trk := range trackers {
-		if trk.With, err = store.Evaluate(trk.With, store.Update{}); err != nil {
+		if trk.With, err = store.Evaluate(trk.With, store.EvalData{}); err != nil {
 			return nil, fmt.Errorf("evaluate variables for tracker %q: %w", trk.Name, err)
 		}
 

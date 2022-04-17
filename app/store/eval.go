@@ -29,7 +29,7 @@ func (i If) Eval(upd Update) (bool, error) {
 }
 
 // Evaluate evaluates the final values of each variable.
-func Evaluate(v lib.Vars, upd Update) (lib.Vars, error) {
+func Evaluate(v lib.Vars, data EvalData) (lib.Vars, error) {
 	if len(v) == 0 {
 		return nil, nil
 	}
@@ -42,7 +42,7 @@ func Evaluate(v lib.Vars, upd Update) (lib.Vars, error) {
 		}
 
 		buf := &bytes.Buffer{}
-		if err = tmpl.Execute(buf, map[string]interface{}{"Update": upd}); err != nil {
+		if err = tmpl.Execute(buf, data); err != nil {
 			return lib.Vars{}, fmt.Errorf("evaluate the value of the %q variable: %w", key, err)
 		}
 
@@ -50,6 +50,12 @@ func Evaluate(v lib.Vars, upd Update) (lib.Vars, error) {
 	}
 
 	return res, nil
+}
+
+// EvalData combines all the possible data to evaluate the template/expression..
+type EvalData struct {
+	Ticket Ticket
+	Update Update
 }
 
 // map of functions to parse from the config file

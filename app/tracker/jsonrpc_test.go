@@ -43,7 +43,13 @@ func TestJSONRPC_Call(t *testing.T) {
 			assert.True(t, ok)
 
 			assert.Equal(t, "plugin.some-method", serviceMethod)
-			*resp = lib.Response{TaskID: "task-id"}
+			*resp = lib.Response{Task: lib.Task{
+				ID:     "task-id",
+				URL:    "task-url",
+				Title:  "task-title",
+				Body:   "task-body",
+				Fields: map[string]string{"field": "value"},
+			}}
 			assert.Equal(t, lib.Request{
 				TaskID: "task-id",
 				Vars:   lib.Vars{},
@@ -58,7 +64,14 @@ func TestJSONRPC_Call(t *testing.T) {
 		Vars:   lib.Vars{},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, Response{TaskID: "task-id"}, resp)
+	assert.Equal(t, Response{Task: store.Task{
+		ID: "task-id",
+		Content: store.Content{
+			Body:   "task-body",
+			Title:  "task-title",
+			Fields: map[string]string{"field": "value"},
+		},
+	}}, resp)
 }
 
 func TestJSONRPC_Subscribe(t *testing.T) {
@@ -146,9 +159,9 @@ func TestJSONRPC_HandleWebhook(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(svc.HandleWebhook))
 	defer ts.Close()
 
-	b, err := json.Marshal(lib.Ticket{
+	b, err := json.Marshal(lib.Task{
 		URL:    "update-url",
-		TaskID: "task-id",
+		ID:     "task-id",
 		Title:  "title",
 		Body:   "body",
 		Fields: map[string]string{"somefield": "somevalue"},
