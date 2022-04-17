@@ -23,20 +23,11 @@ func TestTickets_Create(t *testing.T) {
 	svc := prepareTickets(t)
 
 	tkt := store.Ticket{
-		TrackerIDs: map[string]string{
-			"tracker-1": "task-id-1",
-			"tracker-2": "task-id-2",
-			"tracker-3": "task-id-3",
-			"tracker-4": "task-id-4",
-		},
-		Content: store.Content{
-			Body:  "body",
-			Title: "title",
-			Fields: map[string]string{
-				"field-1": "val-1",
-				"field-2": "val-2",
-				"field-3": "val-3",
-			},
+		Variations: map[string]store.Task{
+			"tracker-1": {ID: "task-id-1", Content: store.Content{Body: "body-1", Title: "title-1"}},
+			"tracker-2": {ID: "task-id-2", Content: store.Content{Body: "body-2", Title: "title-2"}},
+			"tracker-3": {ID: "task-id-3", Content: store.Content{Body: "body-3", Title: "title-3"}},
+			"tracker-4": {ID: "task-id-4", Content: store.Content{Body: "body-4", Title: "title-4"}},
 		},
 	}
 
@@ -55,7 +46,7 @@ func TestTickets_Create(t *testing.T) {
 
 		refsBkt := tx.Bucket([]byte(ticketRefsBktName))
 
-		locators := expectedTkt.TrackerIDs.Locators()
+		locators := expectedTkt.Variations.Locators()
 		for _, locator := range locators {
 			refTicketID := refsBkt.Get([]byte(taskRef(locator)))
 			assert.Equal(t, []byte(id), refTicketID)
@@ -71,20 +62,11 @@ func TestTickets_Update(t *testing.T) {
 
 	expectedTkt := store.Ticket{
 		ID: "id",
-		TrackerIDs: map[string]string{
-			"tracker-1": "task-id-1",
-			"tracker-2": "task-id-2",
-			"tracker-3": "task-id-3",
-			"tracker-4": "task-id-4",
-		},
-		Content: store.Content{
-			Body:  "body",
-			Title: "title",
-			Fields: map[string]string{
-				"field-1": "val-1",
-				"field-2": "val-2",
-				"field-3": "val-3",
-			},
+		Variations: map[string]store.Task{
+			"tracker-1": {ID: "task-id-1", Content: store.Content{Body: "body-1", Title: "title-1"}},
+			"tracker-2": {ID: "task-id-2", Content: store.Content{Body: "body-2", Title: "title-2"}},
+			"tracker-3": {ID: "task-id-3", Content: store.Content{Body: "body-3", Title: "title-3"}},
+			"tracker-4": {ID: "task-id-4", Content: store.Content{Body: "body-4", Title: "title-4"}},
 		},
 	}
 
@@ -100,7 +82,7 @@ func TestTickets_Update(t *testing.T) {
 
 		refsBkt := tx.Bucket([]byte(ticketRefsBktName))
 
-		locators := expectedTkt.TrackerIDs.Locators()
+		locators := expectedTkt.Variations.Locators()
 		for _, locator := range locators {
 			refTicketID := refsBkt.Get([]byte(taskRef(locator)))
 			assert.Equal(t, []byte("id"), refTicketID)
@@ -114,20 +96,11 @@ func TestTickets_Update(t *testing.T) {
 func TestTickets_Get(t *testing.T) {
 	expectedTkt := store.Ticket{
 		ID: "id",
-		TrackerIDs: map[string]string{
-			"tracker-1": "task-id-1",
-			"tracker-2": "task-id-2",
-			"tracker-3": "task-id-3",
-			"tracker-4": "task-id-4",
-		},
-		Content: store.Content{
-			Body:  "body",
-			Title: "title",
-			Fields: map[string]string{
-				"field-1": "val-1",
-				"field-2": "val-2",
-				"field-3": "val-3",
-			},
+		Variations: map[string]store.Task{
+			"tracker-1": {ID: "task-id-1", Content: store.Content{Body: "body-1", Title: "title-1"}},
+			"tracker-2": {ID: "task-id-2", Content: store.Content{Body: "body-2", Title: "title-2"}},
+			"tracker-3": {ID: "task-id-3", Content: store.Content{Body: "body-3", Title: "title-3"}},
+			"tracker-4": {ID: "task-id-4", Content: store.Content{Body: "body-4", Title: "title-4"}},
 		},
 	}
 

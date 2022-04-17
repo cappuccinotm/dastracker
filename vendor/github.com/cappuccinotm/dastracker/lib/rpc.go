@@ -7,10 +7,10 @@ type Request struct {
 	Vars   Vars   `json:"vars"`
 }
 
-// Ticket describes an updated task representation in dastracker.
-type Ticket struct {
+// Task describes an updated task representation in dastracker.
+type Task struct {
+	ID     string            `json:"id"`
 	URL    string            `json:"url"`
-	TaskID string            `json:"task_id"`
 	Title  string            `json:"title"`
 	Body   string            `json:"body"`
 	Fields map[string]string `json:"fields"`
@@ -18,7 +18,7 @@ type Ticket struct {
 
 // Response describes possible return values of the tracker's action.
 type Response struct {
-	TaskID string `json:"task_id"` // optional, id of the created task in the tracker
+	Task Task `json:"task"` // contains the update of the created/updated task in tracker
 }
 
 // SubscribeReq describes parameters of the subscription for task updates.

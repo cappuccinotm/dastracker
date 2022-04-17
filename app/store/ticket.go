@@ -14,7 +14,7 @@ type TicketFields map[string]string
 // Ticket describes a basic task/ticket in task tracker.
 type Ticket struct {
 	ID         string     `json:"id"`
-	Variations Variations `json:"variations"`
+	Variations Variations `json:"variations"` // map[tracker name]Task
 }
 
 // Patch updates ticket fields with given update values.

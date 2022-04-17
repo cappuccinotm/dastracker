@@ -73,7 +73,7 @@ func (b *Tickets) Update(_ context.Context, ticket store.Ticket) error {
 			return fmt.Errorf("put ticket to storage: %w", err)
 		}
 
-		if err = b.putTicketRefs(tx, ticket.ID, ticket.TrackerIDs); err != nil {
+		if err = b.putTicketRefs(tx, ticket); err != nil {
 			return fmt.Errorf("put ticket refs: %w", err)
 		}
 
@@ -119,11 +119,11 @@ func (b *Tickets) Get(_ context.Context, req engine.GetRequest) (store.Ticket, e
 	return ticket, nil
 }
 
-func (b *Tickets) putTicketRefs(tx *bolt.Tx, ticketID string, trackerIDs store.TrackerIDs) error {
-	locators := trackerIDs.Locators()
+func (b *Tickets) putTicketRefs(tx *bolt.Tx, ticket store.Ticket) error {
+	locators := ticket.Variations.Locators()
 	for _, locator := range locators {
-		if err := tx.Bucket([]byte(ticketRefsBktName)).Put([]byte(taskRef(locator)), []byte(ticketID)); err != nil {
-			return fmt.Errorf("put ref for %q on %s: %w", locator.String(), ticketID, err)
+		if err := tx.Bucket([]byte(ticketRefsBktName)).Put([]byte(taskRef(locator)), []byte(ticket.ID)); err != nil {
+			return fmt.Errorf("put ref for %q on %s: %w", locator.String(), ticket.ID, err)
 		}
 	}
 	return nil

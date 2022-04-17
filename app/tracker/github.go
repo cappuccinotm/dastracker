@@ -1,5 +1,3 @@
-//go:build blah
-
 package tracker
 
 import (
@@ -80,22 +78,23 @@ func (g *Github) Call(ctx context.Context, req Request) (Response, error) {
 
 func (g *Github) updateOrCreateIssue(ctx context.Context, req Request) (Response, error) {
 	if req.TaskID == "" {
-		id, err := g.issue(ctx, http.MethodPost, "", req.Vars)
+		task, err := g.issue(ctx, http.MethodPost, "", req.Vars)
 		if err != nil {
 			return Response{}, fmt.Errorf("create task: %w", err)
 		}
 
-		return Response{TaskID: id}, nil
+		return Response{Task: task}, nil
 	}
 
-	if _, err := g.issue(ctx, http.MethodPatch, req.TaskID, req.Vars); err != nil {
+	task, err := g.issue(ctx, http.MethodPatch, req.TaskID, req.Vars)
+	if err != nil {
 		return Response{}, fmt.Errorf("update task: %w", err)
 	}
 
-	return Response{TaskID: req.TaskID}, nil
+	return Response{Task: task}, nil
 }
 
-func (g *Github) issue(ctx context.Context, method, id string, vars lib.Vars) (respID string, err error) {
+func (g *Github) issue(ctx context.Context, method, id string, vars lib.Vars) (store.Task, error) {
 	bts, err := json.Marshal(map[string]interface{}{
 		"title":     vars.Get("title"),
 		"body":      vars.Get("body"),
@@ -103,7 +102,7 @@ func (g *Github) issue(ctx context.Context, method, id string, vars lib.Vars) (r
 		"milestone": vars.Get("milestone"),
 	})
 	if err != nil {
-		return "", fmt.Errorf("marshal request body: %w", err)
+		return store.Task{}, fmt.Errorf("marshal request body: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/repos/%s/%s/issues", g.baseURL, g.repo.Owner, g.repo.Name)
@@ -114,27 +113,32 @@ func (g *Github) issue(ctx context.Context, method, id string, vars lib.Vars) (r
 
 	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(bts))
 	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+		return store.Task{}, fmt.Errorf("create request: %w", err)
 	}
 
 	resp, err := g.cl.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("do request: %w", err)
+		return store.Task{}, fmt.Errorf("do request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return "", g.handleUnexpectedStatus(resp)
+		return store.Task{}, g.handleUnexpectedStatus(resp)
 	}
 
-	var respBody struct {
-		ID int64 `json:"id"`
+	var issue ghIssue
+
+	if err = json.NewDecoder(resp.Body).Decode(&issue); err != nil {
+		return store.Task{}, fmt.Errorf("unmarshal created issue's id: %w", err)
 	}
 
-	if err = json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
-		return "", fmt.Errorf("unmarshal created issue's id: %w", err)
-	}
-
-	return strconv.FormatInt(respBody.ID, 10), nil
+	return store.Task{
+		ID: strconv.FormatInt(issue.Number, 10),
+		Content: store.Content{
+			Body:   issue.Body,
+			Title:  issue.Title,
+			Fields: nil, // todo(semior): parse fields
+		},
+	}, nil
 }
 
 // Subscribe sends a request to github for webhook and sets a handler for that webhook.
@@ -226,13 +230,8 @@ func (g *Github) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var ghUpdate struct {
-		Action string `json:"action"`
-		Issue  struct {
-			ID    int64  `json:"number"`
-			Title string `json:"title"`
-			Body  string `json:"body"`
-			URL   string `json:"url"`
-		} `json:"issue"`
+		Action string  `json:"action"`
+		Issue  ghIssue `json:"issue"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&ghUpdate); err != nil {
@@ -244,7 +243,7 @@ func (g *Github) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		URL: ghUpdate.Issue.URL,
 		ReceivedFrom: store.Locator{
 			Tracker: g.name,
-			ID:      strconv.FormatInt(ghUpdate.Issue.ID, 10),
+			ID:      strconv.FormatInt(ghUpdate.Issue.Number, 10),
 		},
 		Content: store.Content{
 			Body:   ghUpdate.Issue.Body,
@@ -267,4 +266,11 @@ func (g *Github) Listen(ctx context.Context, h Handler) error {
 	g.handler = h
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+type ghIssue struct {
+	Number int64  `json:"number"`
+	Title  string `json:"title"`
+	Body   string `json:"body"`
+	URL    string `json:"url"`
 }

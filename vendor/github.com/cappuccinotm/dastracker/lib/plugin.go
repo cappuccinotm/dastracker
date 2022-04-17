@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/rpc"
@@ -11,9 +12,8 @@ import (
 
 // Plugin provides methods to start listener and register RPC methods.
 type Plugin struct {
-	Address            string
-	SubscribeHandler   func(req SubscribeReq) (SubscribeResp, error)
-	UnsubscribeHandler func(req UnsubscribeReq) error
+	Address string
+	Logger  Logger // no-op by default
 }
 
 // Listen starts RPC server and listens for incoming connections.
@@ -21,34 +21,16 @@ func (p *Plugin) Listen(ctx context.Context, rcvr interface{}) (err error) {
 	ctxCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	if p.Logger == nil {
+		p.Logger = log.New(ioutil.Discard, "", 0)
+	}
+
 	if err = rpc.RegisterName("plugin", rcvr); err != nil {
 		return fmt.Errorf("can't register plugin: %v", err)
 	}
-	log.Printf("[INFO] register rpc on address %s", p.Address)
+	p.Logger.Printf("[INFO] register rpc on address %s", p.Address)
 
 	return p.listen(ctxCancel)
-}
-
-// Subscribe implements Subscribe RPC handler and calls the handler for
-// subscription, if it is set.
-func (p *Plugin) Subscribe(req SubscribeReq, resp *SubscribeResp) error {
-	if p.SubscribeHandler == nil {
-		return nil
-	}
-
-	mtdResp, err := p.SubscribeHandler(req)
-	resp = &mtdResp
-	return err
-}
-
-// Unsubscribe implements Unsubscribe RPC handler and calls the handler for
-// subscription, if it is set.
-func (p *Plugin) Unsubscribe(req UnsubscribeReq, _ *struct{}) error {
-	if p.UnsubscribeHandler == nil {
-		return nil
-	}
-
-	return p.UnsubscribeHandler(req)
 }
 
 func (p *Plugin) listen(ctx context.Context) error {
@@ -60,7 +42,7 @@ func (p *Plugin) listen(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		if err := listener.Close(); err != nil {
-			log.Printf("[WARN] can't close plugin listener")
+			p.Logger.Printf("[WARN] can't close plugin listener")
 		}
 	}()
 
@@ -75,9 +57,21 @@ func (p *Plugin) listen(ctx context.Context) error {
 			}
 		}
 		go func() {
-			log.Printf("[INFO] accepted connection from %s", conn.RemoteAddr().String())
+			p.Logger.Printf("[INFO] accepted connection from %s", conn.RemoteAddr().String())
 			jsonrpc.ServeConn(conn)
-			log.Printf("[INFO] stopped to serve connection from %s", conn.RemoteAddr().String())
+			p.Logger.Printf("[INFO] stopped to serve connection from %s", conn.RemoteAddr().String())
 		}()
 	}
+}
+
+// SubscriptionSupporter provides methods to subscribe to events.
+// If plugin needs to support subscriptions, it should implement this interface.
+type SubscriptionSupporter interface {
+	Subscribe(req SubscribeReq, resp *SubscribeResp) error
+	Unsubscribe(req UnsubscribeReq, _ *struct{}) error
+}
+
+// Logger is a logger interface.
+type Logger interface {
+	Printf(format string, v ...interface{})
 }

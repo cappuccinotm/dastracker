@@ -1,5 +1,3 @@
-//go:build blah
-
 package tracker
 
 import (
@@ -87,7 +85,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 				Milestone: "milestone",
 			}, resp)
 
-			_, err = w.Write([]byte(`{"id": 123}`))
+			_, err = w.Write([]byte(`{"number": 123}`))
 			require.NoError(t, err)
 			called = true
 		})
@@ -102,7 +100,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "123", resp.TaskID)
+		assert.Equal(t, "123", resp.Task.ID)
 		assert.True(t, called)
 	})
 
@@ -166,7 +164,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 				Milestone: "milestone",
 			}, resp)
 
-			_, err = w.Write([]byte(`{"id": 123}`))
+			_, err = w.Write([]byte(`{"number": 123}`))
 			require.NoError(t, err)
 			called = true
 		})
@@ -182,7 +180,7 @@ func TestGithub_updateOrCreateIssue(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "123", resp.TaskID)
+		assert.Equal(t, "123", resp.Task.ID)
 		assert.True(t, called)
 	})
 }

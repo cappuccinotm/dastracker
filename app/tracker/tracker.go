@@ -48,7 +48,9 @@ type Request struct {
 }
 
 // Response describes possible return values of the Interface.Call
-type Response struct{ store.Task }
+type Response struct {
+	Task store.Task
+}
 
 // SubscribeReq describes parameters of the subscription for task updates.
 type SubscribeReq struct {
