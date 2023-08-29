@@ -1,5 +1,11 @@
 # Dastracker [![Go](https://github.com/cappuccinotm/dastracker/actions/workflows/.go.yaml/badge.svg)](https://github.com/cappuccinotm/dastracker/actions/workflows/.go.yaml) [![codecov](https://codecov.io/gh/cappuccinotm/dastracker/branch/master/graph/badge.svg?token=nLxLt9Vdyo)](https://codecov.io/gh/cappuccinotm/dastracker) [![go report card](https://goreportcard.com/badge/github.com/cappuccinotm/dastracker)](https://goreportcard.com/report/github.com/cappuccinotm/dastracker) [![Go Reference](https://pkg.go.dev/badge/github.com/cappuccinotm/dastracker.svg)](https://pkg.go.dev/github.com/cappuccinotm/dastracker)
 
+## Status
+
+This project is frozen and will not be further developed.
+
+* * *
+
 Automating tasks management - simple and friendly, like Github Actions
 
 
